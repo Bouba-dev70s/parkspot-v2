@@ -11,13 +11,18 @@ interface Props {
   parkings: Parking[];
   onSelect: (p: Parking) => void;
   userPos: [number, number] | null;
+  dark?: boolean;
 }
 
-export default function Map({ parkings, onSelect, userPos }: Props) {
+export default function Map({ parkings, onSelect, userPos, dark }: Props) {
   const mapRef = useRef<L.Map | null>(null);
   const clusterRef = useRef<L.MarkerClusterGroup | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const userMarkerRef = useRef<L.Marker | null>(null);
+  const tileRef = useRef<L.TileLayer | null>(null);
+
+  const LIGHT_TILES = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
+  const DARK_TILES = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
 
   // Init map
   useEffect(() => {
@@ -34,12 +39,14 @@ export default function Map({ parkings, onSelect, userPos }: Props) {
       zoomSnap: 0.5,
       wheelPxPerZoomLevel: 120,
     });
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+
+    const tile = L.tileLayer(dark ? DARK_TILES : LIGHT_TILES, {
       maxZoom: 18,
       keepBuffer: 6,
       updateWhenZooming: false,
       updateWhenIdle: true,
     }).addTo(map);
+    tileRef.current = tile;
 
     const cluster = L.markerClusterGroup({
       maxClusterRadius: 40,
@@ -52,10 +59,17 @@ export default function Map({ parkings, onSelect, userPos }: Props) {
 
     mapRef.current = map;
     clusterRef.current = cluster;
-    map.getContainer().style.background = "#f2efe9";
+    map.getContainer().style.background = dark ? "#1a1a22" : "#f2efe9";
 
     return () => { map.remove(); mapRef.current = null; };
   }, []);
+
+  // Switch tiles on dark mode change
+  useEffect(() => {
+    if (!mapRef.current || !tileRef.current) return;
+    tileRef.current.setUrl(dark ? DARK_TILES : LIGHT_TILES);
+    mapRef.current.getContainer().style.background = dark ? "#1a1a22" : "#f2efe9";
+  }, [dark]);
 
   // Update markers
   useEffect(() => {
@@ -70,10 +84,10 @@ export default function Map({ parkings, onSelect, userPos }: Props) {
       const sz = full ? 26 : 34;
       const icon = L.divIcon({
         className: `mm ${cls}`,
-        html: `${p.avail}`,
+        html: `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;line-height:1">${p.avail}</span>`,
         iconSize: [sz, sz],
         iconAnchor: [sz / 2, sz / 2],
-        popupAnchor: [0, -20],
+        popupAnchor: [0, -sz / 2 - 4],
       });
       const m = L.marker([p.lat, p.lng], { icon });
       const pct = p.total > 0 ? p.avail / p.total : 0;
@@ -84,10 +98,10 @@ export default function Map({ parkings, onSelect, userPos }: Props) {
           <div style="font-size:10px;font-weight:600;letter-spacing:1.5px;color:${p.type === "free" ? "var(--free)" : "var(--paid)"}">${tl}</div>
           <div style="font-size:15px;font-weight:600;margin:4px 0 2px">${p.name}</div>
           <div style="font-size:11px;opacity:0.5;margin-bottom:10px">${p.addr}</div>
-          <div style="display:flex;gap:10px;border-top:1px solid rgba(0,0,0,0.06);padding-top:10px">
-            <div style="flex:1;text-align:center"><div class="font-mono" style="font-size:16px;font-weight:600;color:${vc}">${p.avail}</div><div style="font-size:9px;opacity:0.4">Dispo</div></div>
-            <div style="flex:1;text-align:center"><div class="font-mono" style="font-size:16px;font-weight:600">${p.total}</div><div style="font-size:9px;opacity:0.4">Total</div></div>
-            <div style="flex:1;text-align:center"><div class="font-mono" style="font-size:16px;font-weight:600;color:${p.price ? "var(--paid)" : "var(--free)"}">${p.price || "0€"}</div><div style="font-size:9px;opacity:0.4">Tarif</div></div>
+          <div style="display:flex;gap:10px;border-top:1px solid rgba(128,128,128,0.2);padding-top:10px">
+            <div style="flex:1;text-align:center"><div style="font-size:16px;font-weight:600;color:${vc}">${p.avail}</div><div style="font-size:9px;opacity:0.4">Dispo</div></div>
+            <div style="flex:1;text-align:center"><div style="font-size:16px;font-weight:600">${p.total}</div><div style="font-size:9px;opacity:0.4">Total</div></div>
+            <div style="flex:1;text-align:center"><div style="font-size:16px;font-weight:600;color:${p.price ? "var(--paid)" : "var(--free)"}">${p.price || "0€"}</div><div style="font-size:9px;opacity:0.4">Tarif</div></div>
           </div>
         </div>`,
         { maxWidth: 260 }
@@ -98,7 +112,6 @@ export default function Map({ parkings, onSelect, userPos }: Props) {
 
     cluster.addLayers(markers);
 
-    // Fit bounds on first load
     if (parkings.length > 0 && mapRef.current) {
       const idf = parkings.filter((p) => p.lat > 48.1 && p.lat < 49.25);
       if (idf.length > 5) {
@@ -122,5 +135,6 @@ export default function Map({ parkings, onSelect, userPos }: Props) {
     mapRef.current.flyTo(userPos, 15, { duration: 0.8 });
   }, [userPos]);
 
-  return <div ref={containerRef} className="w-full h-full" style={{ background: "var(--map-bg)" }} />;
+  return <div ref={containerRef} className="w-full h-full" style={{ background: dark ? "#1a1a22" : "#f2efe9" }} />;
 }
+
