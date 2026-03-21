@@ -79,11 +79,11 @@ export default function PeekSheet({ parkings, onSelect, freeCount, paidCount }: 
 
       {/* Stats */}
       <div className="flex gap-2 px-5 pb-3.5">
-        <div className="flex-1 p-2.5 bg-[var(--card-bg)] rounded-xl text-center">
+        <div className="flex-1 p-2.5 bg-gray-100 dark:bg-gray-800/50 rounded-xl text-center">
           <div className="font-mono text-xl font-bold" style={{ color: "var(--free)" }}>{freeCount}</div>
           <div className="text-[10px] text-black/30 dark:text-white/30 uppercase tracking-wide mt-0.5">Gratuit</div>
         </div>
-        <div className="flex-1 p-2.5 bg-[var(--card-bg)] rounded-xl text-center">
+        <div className="flex-1 p-2.5 bg-gray-100 dark:bg-gray-800/50 rounded-xl text-center">
           <div className="font-mono text-xl font-bold" style={{ color: "var(--paid)" }}>{paidCount}</div>
           <div className="text-[10px] text-black/30 dark:text-white/30 uppercase tracking-wide mt-0.5">Payant</div>
         </div>
@@ -96,7 +96,7 @@ export default function PeekSheet({ parkings, onSelect, freeCount, paidCount }: 
           const ac = r > 0.3 ? "text-[var(--free)]" : r > 0 ? "text-[var(--paid)]" : "text-[var(--full)]";
           const ic = p.avail === 0 ? "bg-[var(--full)] opacity-50" : p.type === "free" ? "bg-[var(--free)]" : "bg-[var(--paid)]";
           return (
-            <button key={p.id} onClick={() => onSelect(p)} className="w-full flex items-center gap-3.5 p-3.5 bg-[var(--card-bg)] border border-black/5 dark:border-white/5 rounded-[14px] mb-2 text-left active:bg-black/5 dark:active:bg-white/5">
+            <button key={p.id} onClick={() => onSelect(p)} className="w-full flex items-center gap-3.5 p-3.5 bg-gray-100 dark:bg-gray-800/50 border border-black/5 dark:border-white/5 rounded-[14px] mb-2 text-left active:bg-black/5 dark:active:bg-white/5">
               <div className={`w-1 h-10 rounded ${ic}`} />
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold truncate">{p.name}</div>

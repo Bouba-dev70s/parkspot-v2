@@ -91,7 +91,7 @@ export default function DetailSheet({ parking, onClose, isFav, onToggleFav, user
         {/* Services */}
         <div className="flex gap-2 flex-wrap mb-4">
           {["Couvert", "24/7", "PMR", "Electrique"].map((s) => (
-            <span key={s} className="flex items-center gap-1 px-3 py-1 bg-[var(--card-bg)] rounded-full text-[11px] font-medium text-black/50 dark:text-white/50">
+            <span key={s} className="flex items-center gap-1 px-3 py-1 bg-gray-100 dark:bg-gray-800/50 rounded-full text-[11px] font-medium text-black/50 dark:text-white/50">
               <HiCheck size={12} /> {s}
             </span>
           ))}
@@ -99,15 +99,15 @@ export default function DetailSheet({ parking, onClose, isFav, onToggleFav, user
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-2.5 mb-4">
-          <div className="bg-[var(--card-bg)] rounded-[14px] p-4 text-center">
+          <div className="bg-gray-100 dark:bg-gray-800/50 rounded-[14px] p-4 text-center">
             <div className="font-mono text-[28px] font-semibold" style={{ color: vc }}>{p.avail}</div>
             <div className="text-[11px] text-black/30 dark:text-white/30 mt-1">Disponibles</div>
           </div>
-          <div className="bg-[var(--card-bg)] rounded-[14px] p-4 text-center">
+          <div className="bg-gray-100 dark:bg-gray-800/50 rounded-[14px] p-4 text-center">
             <div className="font-mono text-[28px] font-semibold">{p.total}</div>
             <div className="text-[11px] text-black/30 dark:text-white/30 mt-1">Total</div>
           </div>
-          <div className="bg-[var(--card-bg)] rounded-[14px] p-4 text-center">
+          <div className="bg-gray-100 dark:bg-gray-800/50 rounded-[14px] p-4 text-center">
             <div className="font-mono text-[28px] font-semibold" style={{ color: p.price ? "var(--paid)" : "var(--free)" }}>{p.price || "0€"}</div>
             <div className="text-[11px] text-black/30 dark:text-white/30 mt-1">Tarif</div>
           </div>
@@ -144,7 +144,7 @@ export default function DetailSheet({ parking, onClose, isFav, onToggleFav, user
 
         {/* Pricing */}
         {p.price ? (
-          <div className="bg-[var(--card-bg)] rounded-xl p-3 mb-4">
+          <div className="bg-gray-100 dark:bg-gray-800/50 rounded-xl p-3 mb-4">
             {[["1 heure", p.price], ["2 heures", `${(priceVal * 1.8).toFixed(2)}€`], ["24 heures", `${(priceVal * 6).toFixed(2)}€`], ["Abonnement/mois", `~${(priceVal * 90).toFixed(0)}€`]].map(([l, v]) => (
               <div key={l} className="flex justify-between py-1 text-[13px]">
                 <span className="text-black/50 dark:text-white/50">{l}</span>
@@ -153,7 +153,7 @@ export default function DetailSheet({ parking, onClose, isFav, onToggleFav, user
             ))}
           </div>
         ) : (
-          <div className="bg-[var(--card-bg)] rounded-xl p-3 mb-4">
+          <div className="bg-gray-100 dark:bg-gray-800/50 rounded-xl p-3 mb-4">
             <div className="flex justify-between py-1 text-[13px]">
               <span className="text-black/50 dark:text-white/50">Tarif</span>
               <span className="font-mono font-medium" style={{ color: "var(--free)" }}>Gratuit</span>
@@ -166,7 +166,7 @@ export default function DetailSheet({ parking, onClose, isFav, onToggleFav, user
           <button onClick={navigateTo} className="flex items-center justify-center gap-2 p-4 rounded-[14px] bg-[var(--free)] text-black font-semibold text-sm active:scale-[0.97]">
             <HiOutlineArrowRight size={16} /> Itineraire
           </button>
-          <button onClick={onToggleFav} className={`flex items-center justify-center gap-2 p-4 rounded-[14px] font-semibold text-sm active:scale-[0.97] ${isFav ? "bg-[var(--paid-bg)] text-[var(--paid)]" : "bg-[var(--card-bg)] border border-black/8 dark:border-white/8"}`}>
+          <button onClick={onToggleFav} className={`flex items-center justify-center gap-2 p-4 rounded-[14px] font-semibold text-sm active:scale-[0.97] ${isFav ? "bg-[var(--paid-bg)] text-[var(--paid)]" : "bg-gray-100 dark:bg-gray-800/50 border border-black/8 dark:border-white/8"}`}>
             {isFav ? <HiBookmark size={16} /> : <HiOutlineBookmark size={16} />}
             {isFav ? "Sauvegarde" : "Sauvegarder"}
           </button>

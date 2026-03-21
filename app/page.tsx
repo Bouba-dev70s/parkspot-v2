@@ -219,7 +219,7 @@ export default function Home() {
             <p className="text-sm text-black/30 dark:text-white/30 mb-5">Soyez notifie quand des places se liberent</p>
           </div>
           <div className="overflow-y-auto px-5 pb-24" style={{ height: "calc(100dvh - 160px)" }}>
-            <div className="p-4 bg-[var(--card-bg)] rounded-[14px] mb-2 flex items-center justify-between">
+            <div className="p-4 bg-gray-100 dark:bg-gray-800/50 rounded-[14px] mb-2 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <HiOutlineBellIcon />
                 <div><div className="text-sm font-semibold">Notifications push</div><div className="text-xs text-black/30 dark:text-white/30">Alerte quand un parking favori a des places</div></div>
@@ -242,13 +242,13 @@ export default function Home() {
             <div className="text-sm text-black/30 dark:text-white/30 text-center mb-5">Ile-de-France</div>
 
             <div className="grid grid-cols-3 gap-2 mb-6">
-              <div className="bg-[var(--card-bg)] rounded-xl p-3.5 text-center"><div className="font-mono text-xl font-semibold text-gray-900 dark:text-white">{favorites.length}</div><div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 uppercase">Favoris</div></div>
-              <div className="bg-[var(--card-bg)] rounded-xl p-3.5 text-center"><div className="font-mono text-xl font-semibold text-gray-900 dark:text-white">{parkings.length}</div><div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 uppercase">Parkings</div></div>
-              <div className="bg-[var(--card-bg)] rounded-xl p-3.5 text-center"><div className="font-mono text-xl font-semibold text-gray-900 dark:text-white capitalize">{dataSource === "api" ? "Live" : dataSource}</div><div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 uppercase">Source</div></div>
+              <div className="bg-gray-100 dark:bg-gray-800/50 rounded-xl p-3.5 text-center"><div className="font-mono text-xl font-semibold text-gray-900 dark:text-white">{favorites.length}</div><div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 uppercase">Favoris</div></div>
+              <div className="bg-gray-100 dark:bg-gray-800/50 rounded-xl p-3.5 text-center"><div className="font-mono text-xl font-semibold text-gray-900 dark:text-white">{parkings.length}</div><div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 uppercase">Parkings</div></div>
+              <div className="bg-gray-100 dark:bg-gray-800/50 rounded-xl p-3.5 text-center"><div className="font-mono text-xl font-semibold text-gray-900 dark:text-white capitalize">{dataSource === "api" ? "Live" : dataSource}</div><div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 uppercase">Source</div></div>
             </div>
 
             <div className="text-xs font-semibold text-black/30 dark:text-white/30 tracking-[1px] uppercase mb-2.5 pl-1">Preferences</div>
-            <button onClick={() => setDark(!dark)} className="w-full p-4 bg-[var(--card-bg)] rounded-[14px] mb-2 flex items-center justify-between active:bg-black/5">
+            <button onClick={() => setDark(!dark)} className="w-full p-4 bg-gray-100 dark:bg-gray-800/50 rounded-[14px] mb-2 flex items-center justify-between active:bg-black/5">
               <div className="flex items-center gap-3">
                 <span className="text-lg">🌙</span>
                 <div><div className="text-sm font-semibold text-left text-gray-900 dark:text-white">Mode sombre</div><div className="text-xs text-gray-400 dark:text-gray-500">Interface sombre pour la nuit</div></div>
@@ -259,7 +259,7 @@ export default function Home() {
             </button>
 
             <div className="text-xs font-semibold text-black/30 dark:text-white/30 tracking-[1px] uppercase mb-2.5 mt-5 pl-1">A propos</div>
-            <div className="p-4 bg-[var(--card-bg)] rounded-[14px]">
+            <div className="p-4 bg-gray-100 dark:bg-gray-800/50 rounded-[14px]">
               <div className="text-sm font-semibold text-gray-900 dark:text-white">ParkSpot v2.0</div>
               <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Next.js · Open Data Paris · Saemes · BNLS · IDFM</div>
             </div>
