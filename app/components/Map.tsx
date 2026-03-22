@@ -6,6 +6,8 @@ import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import "leaflet.markercluster";
 import type { Parking } from "@/lib/api";
+import type { StreetSpot, VoirieStatus } from "@/lib/voirie";
+import { PARIS_ZONE_1, PARIS_OUTER, spotTypeLabel } from "@/lib/voirie";
 
 interface Props {
   parkings: Parking[];
@@ -16,6 +18,9 @@ interface Props {
   zoom?: number;
   selectedId?: number | null;
   addressPin?: [number, number] | null;
+  showVoirie?: boolean;
+  streetSpots?: StreetSpot[];
+  voirieStatus?: VoirieStatus | null;
 }
 
 // === ICON CACHE — build once, reuse forever ===
@@ -56,7 +61,7 @@ function getIcon(p: Parking, selected: boolean): L.DivIcon {
   return icon;
 }
 
-export default function Map({ parkings, onSelect, userPos, dark, center, zoom, selectedId, addressPin }: Props) {
+export default function Map({ parkings, onSelect, userPos, dark, center, zoom, selectedId, addressPin, showVoirie, streetSpots, voirieStatus }: Props) {
   const mapRef = useRef<L.Map | null>(null);
   const clusterRef = useRef<L.MarkerClusterGroup | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -66,10 +71,13 @@ export default function Map({ parkings, onSelect, userPos, dark, center, zoom, s
   const lastCenter = useRef("");
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
-  // Track markers by parking id for fast selection update
   const markersById = useRef<{ [id: number]: { marker: L.Marker; parking: Parking } }>({});
   const prevSelectedId = useRef<number | null>(null);
   const lastParkingsRef = useRef<string>("");
+
+  // Voirie layers
+  const voirieLayerRef = useRef<L.LayerGroup | null>(null);
+  const streetSpotsLayerRef = useRef<L.LayerGroup | null>(null);
 
   const TILES_LIGHT = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
   const TILES_DARK = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
@@ -82,35 +90,18 @@ export default function Map({ parkings, onSelect, userPos, dark, center, zoom, s
     const map = L.map(containerRef.current, {
       center: c, zoom: z, zoomControl: false, attributionControl: false,
       minZoom: 5, maxZoom: 18, zoomSnap: 0.5,
-      preferCanvas: true,
-      fadeAnimation: true, // Smooth tile fade-in
-      markerZoomAnimation: false,
-      zoomAnimation: true,
-      inertia: true,
-      inertiaDeceleration: 3400,
-      inertiaMaxSpeed: 3000,
+      preferCanvas: true, fadeAnimation: true, markerZoomAnimation: false,
+      zoomAnimation: true, inertia: true, inertiaDeceleration: 3400, inertiaMaxSpeed: 3000,
     });
     const tile = L.tileLayer(dark ? TILES_DARK : TILES_LIGHT, {
-      maxZoom: 19,
-      keepBuffer: 25, // Keep MANY tiles in memory — kills grey areas
-      updateWhenZooming: true, // Load tiles WHILE zooming, not after
-      updateWhenIdle: false, // Don't wait for user to stop
+      maxZoom: 19, keepBuffer: 25, updateWhenZooming: true, updateWhenIdle: false,
     });
     tile.addTo(map);
     tileRef.current = tile;
-    // NO CSS filter — we use native dark tiles instead (10x faster)
     const cluster = L.markerClusterGroup({
-      maxClusterRadius: 60,
-      showCoverageOnHover: false,
-      zoomToBoundsOnClick: true,
-      disableClusteringAtZoom: 16,
-      chunkedLoading: true,
-      chunkInterval: 200,
-      chunkDelay: 30,
-      animate: false,
-      spiderfyOnMaxZoom: false,
-      removeOutsideVisibleBounds: true,
-      animateAddingMarkers: false,
+      maxClusterRadius: 60, showCoverageOnHover: false, zoomToBoundsOnClick: true,
+      disableClusteringAtZoom: 16, chunkedLoading: true, chunkInterval: 200, chunkDelay: 30,
+      animate: false, spiderfyOnMaxZoom: false, removeOutsideVisibleBounds: true, animateAddingMarkers: false,
     });
     map.addLayer(cluster);
     mapRef.current = map;
@@ -120,11 +111,10 @@ export default function Map({ parkings, onSelect, userPos, dark, center, zoom, s
     return () => { map.remove(); mapRef.current = null; };
   }, []);
 
-  // === DARK MODE — swap tiles, no CSS filter ===
+  // === DARK MODE ===
   useEffect(() => {
     if (!mapRef.current || !tileRef.current) return;
-    const url = dark ? TILES_DARK : TILES_LIGHT;
-    tileRef.current.setUrl(url);
+    tileRef.current.setUrl(dark ? TILES_DARK : TILES_LIGHT);
     mapRef.current.getContainer().style.background = dark ? "#1a1a2e" : "#f2efe9";
   }, [dark]);
 
@@ -150,19 +140,16 @@ export default function Map({ parkings, onSelect, userPos, dark, center, zoom, s
     pinRef.current = L.marker(addressPin, { icon, zIndexOffset: 900 }).addTo(mapRef.current);
   }, [addressPin]);
 
-  // === BUILD MARKERS — only when parkings array changes ===
+  // === BUILD PARKING MARKERS ===
   useEffect(() => {
     const cluster = clusterRef.current;
     if (!cluster) return;
-    // Fingerprint to avoid unnecessary rebuilds
     const fp = parkings.map(p => p.id).join(",");
     if (fp === lastParkingsRef.current) return;
     lastParkingsRef.current = fp;
-
     cluster.clearLayers();
     markersById.current = {};
     const markers: L.Marker[] = [];
-
     for (const p of parkings) {
       const m = L.marker([p.lat, p.lng], { icon: getIcon(p, p.id === selectedId) });
       m.on("click", () => onSelectRef.current(p));
@@ -172,23 +159,14 @@ export default function Map({ parkings, onSelect, userPos, dark, center, zoom, s
     cluster.addLayers(markers);
   }, [parkings]);
 
-  // === SELECTION CHANGE — only update 2 markers, not all ===
+  // === SELECTION CHANGE ===
   useEffect(() => {
     const prev = prevSelectedId.current;
     const next = selectedId ?? null;
     prevSelectedId.current = next;
     if (prev === next) return;
-
-    // Deselect previous
-    if (prev != null) {
-      const entry = markersById.current[prev];
-      if (entry) entry.marker.setIcon(getIcon(entry.parking, false));
-    }
-    // Select new
-    if (next != null) {
-      const entry = markersById.current[next];
-      if (entry) entry.marker.setIcon(getIcon(entry.parking, true));
-    }
+    if (prev != null) { const e = markersById.current[prev]; if (e) e.marker.setIcon(getIcon(e.parking, false)); }
+    if (next != null) { const e = markersById.current[next]; if (e) e.marker.setIcon(getIcon(e.parking, true)); }
   }, [selectedId]);
 
   // === USER POSITION ===
@@ -202,6 +180,85 @@ export default function Map({ parkings, onSelect, userPos, dark, center, zoom, s
     });
     userMarkerRef.current = L.marker(userPos, { icon, zIndexOffset: 1000 }).addTo(mapRef.current);
   }, [userPos]);
+
+  // === VOIRIE ZONE OVERLAYS ===
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    // Remove old voirie layers
+    if (voirieLayerRef.current) { mapRef.current.removeLayer(voirieLayerRef.current); voirieLayerRef.current = null; }
+
+    if (!showVoirie || !voirieStatus || voirieStatus.zone === 0) return;
+
+    const group = L.layerGroup();
+    const isFree = voirieStatus.isFree;
+
+    // Zone 1 overlay (arr 1-11)
+    const z1Color = isFree ? "#16a34a" : "#ea580c";
+    const z1 = L.polygon(PARIS_ZONE_1, {
+      color: z1Color, weight: 1.5, fillColor: z1Color, fillOpacity: 0.12,
+      interactive: true,
+    });
+    z1.bindPopup(`
+      <div style="font-family:-apple-system,sans-serif;min-width:180px">
+        <div style="font-weight:700;font-size:14px;margin-bottom:4px">Zone 1 · Arr. 1–11</div>
+        <div style="font-size:12px;color:${isFree ? '#16a34a' : '#ea580c'};font-weight:600;margin-bottom:4px">${isFree ? "✓ GRATUIT" : "6€/h"}</div>
+        <div style="font-size:11px;color:#666">${voirieStatus.reason}</div>
+        ${voirieStatus.nextChange ? `<div style="font-size:11px;color:#999;margin-top:2px">${voirieStatus.nextChange}</div>` : ""}
+        <div style="font-size:10px;color:#aaa;margin-top:4px">Max 6h · Lun–Sam 9h–20h</div>
+      </div>
+    `);
+    group.addLayer(z1);
+
+    // Zone 2 overlay (arr 12-20, outer ring minus zone 1)
+    const z2Color = isFree ? "#16a34a" : "#eab308";
+    const z2 = L.polygon(PARIS_OUTER, {
+      color: z2Color, weight: 1, fillColor: z2Color, fillOpacity: 0.08,
+      interactive: true,
+    });
+    z2.bindPopup(`
+      <div style="font-family:-apple-system,sans-serif;min-width:180px">
+        <div style="font-weight:700;font-size:14px;margin-bottom:4px">Zone 2 · Arr. 12–20</div>
+        <div style="font-size:12px;color:${isFree ? '#16a34a' : '#eab308'};font-weight:600;margin-bottom:4px">${isFree ? "✓ GRATUIT" : "4€/h"}</div>
+        <div style="font-size:11px;color:#666">${voirieStatus.reason}</div>
+        ${voirieStatus.nextChange ? `<div style="font-size:11px;color:#999;margin-top:2px">${voirieStatus.nextChange}</div>` : ""}
+        <div style="font-size:10px;color:#aaa;margin-top:4px">Max 6h · Lun–Sam 9h–20h</div>
+      </div>
+    `);
+    group.addLayer(z2);
+
+    group.addTo(mapRef.current);
+    voirieLayerRef.current = group;
+  }, [showVoirie, voirieStatus]);
+
+  // === STREET SPOTS (individual markers when zoomed in) ===
+  useEffect(() => {
+    if (!mapRef.current) return;
+    if (streetSpotsLayerRef.current) { mapRef.current.removeLayer(streetSpotsLayerRef.current); streetSpotsLayerRef.current = null; }
+
+    if (!showVoirie || !streetSpots || streetSpots.length === 0) return;
+
+    const group = L.layerGroup();
+    for (const s of streetSpots) {
+      const info = spotTypeLabel(s.type);
+      const icon = L.divIcon({
+        className: "",
+        html: `<div style="width:10px;height:10px;border-radius:50%;background:${info.color};border:1.5px solid rgba(255,255,255,0.7);box-shadow:0 1px 3px rgba(0,0,0,0.3)"></div>`,
+        iconSize: [10, 10], iconAnchor: [5, 5],
+      });
+      const m = L.marker([s.lat, s.lng], { icon, zIndexOffset: -100 });
+      m.bindPopup(`
+        <div style="font-family:-apple-system,sans-serif;min-width:130px">
+          <div style="font-weight:700;font-size:13px;color:${info.color};margin-bottom:2px">${info.label}</div>
+          <div style="font-size:11px;color:#666">${s.regime || s.type}</div>
+          ${s.places > 1 ? `<div style="font-size:11px;color:#999">${s.places} places</div>` : ""}
+        </div>
+      `);
+      group.addLayer(m);
+    }
+    group.addTo(mapRef.current);
+    streetSpotsLayerRef.current = group;
+  }, [showVoirie, streetSpots]);
 
   return <div ref={containerRef} className="w-full h-full" style={{ background: dark ? "#1a1a2a" : "#f2efe9" }} />;
 }

@@ -5,6 +5,7 @@ import TabBar, { type TabId } from "./components/TabBar";
 import PeekSheet from "./components/PeekSheet";
 import DetailSheet from "./components/DetailSheet";
 import { loadParkingsForCity, refreshSaemes, reverseGeocode, searchAddress, searchCity, sortByProximity, distanceKm, isCitySupported, type Parking, type CityInfo } from "@/lib/api";
+import { getStreetStatus, fetchStreetSpots, type StreetSpot, type VoirieStatus } from "@/lib/voirie";
 
 const Map = dynamic(() => import("./components/Map"), { ssr: false });
 type Step = "splash" | "detecting" | "confirm" | "ready";
@@ -42,6 +43,9 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("smart");
   const [parkedCar, setParkedCar] = useState<ParkedCar | null>(null);
+  const [showVoirie, setShowVoirie] = useState(false);
+  const [streetSpots, setStreetSpots] = useState<StreetSpot[]>([]);
+  const [voirieStatus, setVoirieStatus] = useState<VoirieStatus | null>(null);
   const addrTimer = useRef<NodeJS.Timeout | null>(null);
 
   // === INIT ===
@@ -132,6 +136,25 @@ export default function Home() {
   // Parked car time
   const parkedTimeText = useMemo(() => { if (!parkedCar) return ""; try { const diff = Math.floor((Date.now() - new Date(parkedCar.time).getTime()) / 60000); if (diff < 60) return `${diff} min`; return `${Math.floor(diff / 60)}h${diff % 60 > 0 ? String(diff % 60).padStart(2, "0") : ""}`; } catch { return ""; } }, [parkedCar]);
 
+  // === VOIRIE — update status when city changes or every minute ===
+  useEffect(() => {
+    if (!city) return;
+    const update = () => {
+      const status = getStreetStatus(city.lat, city.lng);
+      setVoirieStatus(status);
+    };
+    update();
+    const iv = setInterval(update, 60000); // refresh every minute
+    return () => clearInterval(iv);
+  }, [city]);
+
+  // === VOIRIE — fetch street spots when toggled ON in Paris ===
+  useEffect(() => {
+    if (!showVoirie || !city || !voirieStatus || voirieStatus.zone === 0) { setStreetSpots([]); return; }
+    const pos = mapCenter || [city.lat, city.lng];
+    fetchStreetSpots(pos[0], pos[1], 800).then(setStreetSpots);
+  }, [showVoirie, city, mapCenter]);
+
   // === SPLASH ===
   if (step === "splash") return (<div className="splash bg-white dark:bg-[#0e0e12] text-gray-900 dark:text-white"><div className="splash-logo">P</div><div className="splash-text">ParkSpot</div><div className="splash-sub">Parking intelligent en France</div><div className="splash-spinner"><div className="splash-dots"><span /><span /><span /></div></div></div>);
 
@@ -194,7 +217,7 @@ export default function Home() {
       {/* MAP TAB */}
       {activeTab === "map" && (
         <div className="absolute inset-0">
-          {mapCenter ? <Map key={city?.name || "map"} parkings={filtered} onSelect={onSelect} userPos={userPos} dark={dark} center={mapCenter} zoom={mapZoom} selectedId={selected?.id} addressPin={addressPin} /> : <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-900"><div className="splash-dots text-gray-400"><span/><span/><span/></div></div>}
+          {mapCenter ? <Map key={city?.name || "map"} parkings={filtered} onSelect={onSelect} userPos={userPos} dark={dark} center={mapCenter} zoom={mapZoom} selectedId={selected?.id} addressPin={addressPin} showVoirie={showVoirie} streetSpots={streetSpots} voirieStatus={voirieStatus} /> : <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-900"><div className="splash-dots text-gray-400"><span/><span/><span/></div></div>}
           {loading && (<div className="absolute top-20 left-1/2 -translate-x-1/2 z-[1100] bg-white dark:bg-[#1c1c24] px-4 py-2 rounded-full shadow-lg border border-black/8 dark:border-white/8 flex items-center gap-2"><div className="splash-dots text-[var(--accent)]" style={{ transform: "scale(0.6)" }}><span/><span/><span/></div><span className="text-xs font-medium text-gray-500">Chargement...</span></div>)}
           <div className="absolute left-4 right-4 z-[1000]" style={{ top: "59px" }}>
             <button onClick={changeCity} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/90 dark:bg-[#1c1c24]/90 border border-black/8 dark:border-white/8 text-[var(--accent)] text-[11px] font-semibold active:opacity-70 mb-2 shadow-sm backdrop-blur-sm"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>{(city?.name || "Ville").substring(0, 20)} ▾</button>
@@ -207,6 +230,20 @@ export default function Home() {
             {searchAnchor && (<div className="mt-2 flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-full w-fit"><span className="text-xs text-[var(--accent)]">Tri par proximité</span><button onClick={()=>{setSearchAnchor(null);setAddressPin(null)}} className="text-[var(--accent)] font-bold text-xs">✕</button></div>)}
           </div>
           <button onClick={locate} className="fixed bottom-[260px] right-4 z-[1000] w-12 h-12 rounded-full bg-white dark:bg-[#1c1c24] border border-black/8 dark:border-white/8 shadow-lg flex items-center justify-center text-[var(--accent)] active:scale-90"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/><circle cx="12" cy="12" r="8"/></svg></button>
+          {/* Voirie toggle — only in Paris */}
+          {voirieStatus && voirieStatus.zone > 0 && (
+            <button onClick={() => setShowVoirie(!showVoirie)} className={`fixed bottom-[320px] right-4 z-[1000] w-12 h-12 rounded-full border shadow-lg flex items-center justify-center active:scale-90 ${showVoirie ? "bg-[var(--accent)] border-[var(--accent)] text-white" : "bg-white dark:bg-[#1c1c24] border-black/8 dark:border-white/8 text-gray-500 dark:text-gray-400"}`}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 7h18M3 12h18M3 17h18"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/><circle cx="15" cy="12" r="1.5" fill="currentColor"/><circle cx="11" cy="17" r="1.5" fill="currentColor"/></svg>
+            </button>
+          )}
+          {/* Voirie status badge */}
+          {showVoirie && voirieStatus && voirieStatus.zone > 0 && (
+            <div className="fixed bottom-[380px] right-3 z-[1000] bg-white dark:bg-[#1c1c24] border border-black/8 dark:border-white/8 rounded-xl shadow-lg px-3 py-2 max-w-[160px]">
+              <div className={`text-[11px] font-bold ${voirieStatus.isFree ? "text-[var(--free)]" : "text-[var(--paid)]"}`}>{voirieStatus.isFree ? "🅿️ Voirie gratuite" : `🅿️ Voirie ${voirieStatus.pricePerHour}€/h`}</div>
+              <div className="text-[9px] text-gray-400 mt-0.5">{voirieStatus.reason}</div>
+              {voirieStatus.nextChange && <div className="text-[9px] text-gray-400">⏱ {voirieStatus.nextChange}</div>}
+            </div>
+          )}
           {!selected && <PeekSheet parkings={filtered} onSelect={onSelect} freeCount={freeCount} paidCount={paidCount} timestamp={dataTimestamp} />}
           {selected && <DetailSheet parking={selected} onClose={()=>setSelected(null)} isFav={favorites.includes(selected.id)} onToggleFav={()=>toggleFav(selected.id)} userPos={userPos} onParkHere={parkHere} />}
         </div>
@@ -301,7 +338,7 @@ export default function Home() {
             <div className="text-xs font-semibold text-gray-400 tracking-[1px] uppercase mb-2.5 mt-5 pl-1">Préférences</div>
             <button onClick={()=>setDark(!dark)} className="w-full p-4 bg-gray-100 dark:bg-gray-800/50 rounded-[14px] mb-2 flex items-center justify-between active:bg-gray-200 dark:active:bg-gray-700"><div className="flex items-center gap-3"><span className="text-lg">🌙</span><div><div className="text-sm font-semibold text-left text-gray-900 dark:text-white">Mode sombre</div><div className="text-xs text-gray-400">Interface sombre pour la nuit</div></div></div><div className={`w-12 h-7 rounded-full relative ${dark?"bg-[var(--free)]":"bg-black/10"}`}><div className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-all ${dark?"left-6":"left-1"}`}/></div></button>
             <div className="text-xs font-semibold text-gray-400 tracking-[1px] uppercase mb-2.5 mt-5 pl-1">À propos</div>
-            <div className="p-4 bg-gray-100 dark:bg-gray-800/50 rounded-[14px]"><div className="text-sm font-semibold text-gray-900 dark:text-white">ParkSpot v4.0</div><div className="text-xs text-gray-400 mt-0.5">Paris & IDF · Lyon · Bordeaux · Lille</div></div>
+            <div className="p-4 bg-gray-100 dark:bg-gray-800/50 rounded-[14px]"><div className="text-sm font-semibold text-gray-900 dark:text-white">ParkSpot v5.0</div><div className="text-xs text-gray-400 mt-0.5">Paris & IDF · Lyon · Bordeaux · Lille · Voirie</div></div>
           </div>
         </div>
       )}

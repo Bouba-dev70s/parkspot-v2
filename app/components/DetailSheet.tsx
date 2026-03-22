@@ -3,6 +3,7 @@ import { useRef, useCallback, useMemo, useState } from "react";
 import { HiOutlineBookmark, HiBookmark, HiOutlineArrowRight, HiX, HiOutlineShare, HiOutlineLocationMarker } from "react-icons/hi";
 import type { Parking } from "@/lib/api";
 import { estimatePrice, distanceKm } from "@/lib/api";
+import { getVoirieComparison } from "@/lib/voirie";
 
 interface Props { parking: Parking | null; onClose: () => void; isFav: boolean; onToggleFav: () => void; userPos: [number, number] | null; onParkHere?: () => void; }
 
@@ -137,6 +138,51 @@ export default function DetailSheet({ parking, onClose, isFav, onToggleFav, user
             </div>
           </div>
         )}
+
+        {/* Voirie comparison — only in Paris */}
+        {(() => {
+          const comp = getVoirieComparison(p.lat, p.lng, p.pricePerHour, p.type, duration);
+          if (!comp) return null;
+          const vs = comp.voirieStatus;
+          return (
+            <div className="rounded-2xl border border-black/5 dark:border-white/5 p-4 mb-5 overflow-hidden relative">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-6 h-6 rounded-full bg-yellow-100 dark:bg-yellow-900/20 flex items-center justify-center text-[11px]">🅿️</div>
+                <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Voirie vs Parking</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <div className="bg-gray-50 dark:bg-gray-800/40 rounded-xl p-3 text-center">
+                  <div className="text-[10px] text-gray-400 mb-1 font-medium">Voirie</div>
+                  <div className="text-lg font-bold" style={{ color: vs.isFree ? "var(--free)" : "var(--paid)" }}>
+                    {vs.isFree ? "Gratuit" : `${comp.voiriePrice.toFixed(0)}€`}
+                  </div>
+                  <div className="text-[9px] text-gray-400 mt-0.5">Zone {vs.zone} · {vs.reason}</div>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-800/40 rounded-xl p-3 text-center">
+                  <div className="text-[10px] text-gray-400 mb-1 font-medium">Ce parking</div>
+                  <div className="text-lg font-bold" style={{ color: p.type === "free" ? "var(--free)" : "var(--accent)" }}>
+                    {p.type === "free" ? "Gratuit" : `${comp.parkingPrice.toFixed(0)}€`}
+                  </div>
+                  <div className="text-[9px] text-gray-400 mt-0.5">{p.type === "free" ? "Gratuit" : p.price} · Couvert</div>
+                </div>
+              </div>
+              {comp.savings > 0.5 && (
+                <div className={`text-center py-2 rounded-xl text-[12px] font-semibold ${
+                  comp.cheaperOption === "parking" ? "bg-green-50 dark:bg-green-900/10 text-green-600" :
+                  comp.cheaperOption === "voirie" ? "bg-yellow-50 dark:bg-yellow-900/10 text-yellow-600" :
+                  "bg-gray-50 dark:bg-gray-800/40 text-gray-500"
+                }`}>
+                  {comp.cheaperOption === "parking" && `💰 ${comp.savings.toFixed(0)}€ moins cher ici`}
+                  {comp.cheaperOption === "voirie" && `⚠️ Voirie ${comp.savings.toFixed(0)}€ moins chère (max ${vs.maxDuration}h)`}
+                  {comp.cheaperOption === "equal" && "Prix similaire · Parking plus sûr"}
+                </div>
+              )}
+              {vs.nextChange && (
+                <div className="text-[10px] text-gray-400 text-center mt-2">⏱ {vs.nextChange}</div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Actions */}
         <div className="grid grid-cols-2 gap-2 mb-2">
