@@ -76,15 +76,15 @@ export default function DetailSheet({ parking, onClose, isFav, onToggleFav, user
         {/* Stats — fixed size, no overflow */}
         <div className="grid grid-cols-3 gap-2 mb-5">
           <div className="bg-gray-50 dark:bg-gray-800/40 rounded-2xl p-3 text-center">
-            <div className="font-mono text-2xl font-bold" style={{ color: vc }}>{isEst ? "~" : ""}{p.avail}</div>
+            <div className="text-2xl font-bold" style={{ color: vc }}>{isEst ? "~" : ""}{p.avail}</div>
             <div className="text-[10px] text-gray-400 mt-1 font-medium">{isEst ? "Estimé" : "Dispo"}</div>
           </div>
           <div className="bg-gray-50 dark:bg-gray-800/40 rounded-2xl p-3 text-center">
-            <div className="font-mono text-2xl font-bold text-gray-900 dark:text-white">{p.total}</div>
+            <div className="text-2xl font-bold text-gray-900 dark:text-white">{p.total}</div>
             <div className="text-[10px] text-gray-400 mt-1 font-medium">Total</div>
           </div>
           <div className="bg-gray-50 dark:bg-gray-800/40 rounded-2xl p-3 text-center">
-            <div className="font-mono text-2xl font-bold" style={{ color: p.price ? "var(--paid)" : "var(--free)" }}>{priceDisplay}<span className="text-sm font-semibold">{priceUnit}</span></div>
+            <div className="text-2xl font-bold" style={{ color: p.price ? "var(--paid)" : "var(--free)" }}>{priceDisplay}<span className="text-sm font-semibold">{priceUnit}</span></div>
             <div className="text-[10px] text-gray-400 mt-1 font-medium">Tarif</div>
           </div>
         </div>
@@ -127,7 +127,7 @@ export default function DetailSheet({ parking, onClose, isFav, onToggleFav, user
           <div className="bg-gray-50 dark:bg-gray-800/40 rounded-2xl p-4 mb-5">
             <div className="flex justify-between items-center mb-2">
               <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Coût estimé</span>
-              <span className="font-mono text-xl font-bold" style={{ color: "var(--paid)" }}>{est}</span>
+              <span className="text-xl font-bold" style={{ color: "var(--paid)" }}>{est}</span>
             </div>
             <input type="range" min="0.5" max="24" step="0.5" value={duration} onChange={(e) => setDuration(parseFloat(e.target.value))} className="w-full accent-[var(--accent)] h-1" />
             <div className="flex justify-between mt-1.5">

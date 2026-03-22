@@ -22,12 +22,12 @@ export default function PeekSheet({ parkings, onSelect, freeCount, paidCount, ti
       <div className="flex justify-center py-2.5 cursor-pointer" onClick={toggle}><div className="w-9 h-1 bg-black/15 dark:bg-white/15 rounded-full" /></div>
       <div className="flex items-center justify-between px-5 pb-3" onClick={toggle}>
         <span className="text-lg font-bold tracking-tight text-gray-900 dark:text-white">À proximité</span>
-        <span className="font-mono text-xs text-gray-400">{parkings.length}</span>
+        <span className="text-xs text-gray-400">{parkings.length}</span>
       </div>
       <div className="flex gap-2 px-5 pb-3.5">
-        <div className="flex-1 py-2.5 bg-gray-50 dark:bg-gray-800/40 rounded-xl text-center"><div className="font-mono text-lg font-bold tabular-nums text-gray-900 dark:text-white">{parkings.length}</div><div className="text-[9px] text-gray-400 uppercase tracking-widest mt-0.5 font-semibold">Parkings</div></div>
-        <div className="flex-1 py-2.5 bg-gray-50 dark:bg-gray-800/40 rounded-xl text-center"><div className="font-mono text-lg font-bold tabular-nums" style={{ color: "var(--paid)" }}>{parkings.reduce((s, p) => s + p.total, 0).toLocaleString("fr-FR")}</div><div className="text-[9px] text-gray-400 uppercase tracking-widest mt-0.5 font-semibold">Places</div></div>
-        <div className="flex-1 py-2.5 bg-gray-50 dark:bg-gray-800/40 rounded-xl text-center"><div className="font-mono text-lg font-bold tabular-nums" style={{ color: "var(--accent)" }}>{parkings.filter(p => p.realtime).length}</div><div className="text-[9px] text-gray-400 uppercase tracking-widest mt-0.5 font-semibold">Temps réel</div></div>
+        <div className="flex-1 py-2.5 bg-gray-50 dark:bg-gray-800/40 rounded-xl text-center"><div className="text-lg font-bold tabular-nums text-gray-900 dark:text-white">{parkings.length}</div><div className="text-[9px] text-gray-400 uppercase tracking-widest mt-0.5 font-semibold">Parkings</div></div>
+        <div className="flex-1 py-2.5 bg-gray-50 dark:bg-gray-800/40 rounded-xl text-center"><div className="text-lg font-bold tabular-nums" style={{ color: "var(--paid)" }}>{parkings.reduce((s, p) => s + p.total, 0).toLocaleString("fr-FR")}</div><div className="text-[9px] text-gray-400 uppercase tracking-widest mt-0.5 font-semibold">Places</div></div>
+        <div className="flex-1 py-2.5 bg-gray-50 dark:bg-gray-800/40 rounded-xl text-center"><div className="text-lg font-bold tabular-nums" style={{ color: "var(--accent)" }}>{parkings.filter(p => p.realtime).length}</div><div className="text-[9px] text-gray-400 uppercase tracking-widest mt-0.5 font-semibold">Temps réel</div></div>
       </div>
       <div className="flex-1 overflow-y-auto px-4 pb-4" style={{ WebkitOverflowScrolling: "touch" }}>
         {parkings.slice(0, 30).map((p) => {
@@ -46,7 +46,7 @@ export default function PeekSheet({ parkings, onSelect, freeCount, paidCount, ti
                 <div className="text-[11px] text-gray-400 truncate mt-0.5">{p.addr}</div>
               </div>
               <div className="text-right shrink-0 pl-2">
-                <div className={`font-mono text-base font-bold tabular-nums ${ac}`}>{est ? "~" : ""}{p.avail}</div>
+                <div className={`text-base font-bold tabular-nums ${ac}`}>{est ? "~" : ""}{p.avail}</div>
                 <div className={`mt-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-bold tracking-wide ${p.type === "free" ? "bg-[var(--free-bg)] text-[var(--free)]" : "bg-[var(--paid-bg)] text-[var(--paid)]"}`}>{p.type === "free" ? "GRATUIT" : p.price}</div>
               </div>
             </button>);

@@ -233,7 +233,7 @@ export default function Home() {
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="flex-1 h-1 bg-gray-100 dark:bg-white/5 rounded-full overflow-hidden"><div className={`h-full rounded-full ${r > 0.3 ? "bg-[var(--free)]" : r > 0 ? "bg-[var(--paid)]" : "bg-[var(--full)]"}`} style={{ width: `${r*100}%` }} /></div>
-                  <span className={`font-mono text-[12px] font-semibold tabular-nums ${r > 0.3 ? "text-[var(--free)]" : r > 0 ? "text-[var(--paid)]" : "text-[var(--full)]"}`}>{est ? "~" : ""}{p.avail}<span className="text-gray-300 dark:text-gray-600 font-normal">/{p.total}</span></span>
+                  <span className={`text-[12px] font-semibold tabular-nums ${r > 0.3 ? "text-[var(--free)]" : r > 0 ? "text-[var(--paid)]" : "text-[var(--full)]"}`}>{est ? "~" : ""}{p.avail}<span className="text-gray-300 dark:text-gray-600 font-normal">/{p.total}</span></span>
                 </div>
               </button>); })}
             {listVisible < filtered.length && <div className="text-center py-4 text-xs text-gray-400">Scroll pour voir plus ({filtered.length - listVisible} restants)</div>}
@@ -249,7 +249,7 @@ export default function Home() {
           <div className="overflow-y-auto px-5 pb-24" style={{ height: "calc(100dvh - 120px)" }}>
             {favorites.length === 0 ? (<div className="text-center pt-16 text-gray-400"><div className="text-5xl mb-3 opacity-30">&#9733;</div><div className="text-[15px] font-medium">Aucun parking sauvegardé</div></div>)
             : favorites.map((id) => { const p = parkings.find((x) => x.id === id); if (!p) return null; return (
-              <button key={id} onClick={() => { setSelected(p); setActiveTab("map"); setMapCenter([p.lat, p.lng]); setMapZoom(16); }} className="card-appear w-full text-left p-4 bg-gray-50 dark:bg-gray-800/30 border border-black/5 dark:border-white/5 rounded-2xl mb-2.5 active:bg-gray-100"><div className="font-semibold text-gray-900 dark:text-white">{p.name}</div><div className="text-xs text-gray-400 mt-0.5">{p.addr}</div><div className="font-mono text-sm mt-2" style={{ color: p.avail > 0 ? "var(--free)" : "var(--full)" }}>{p.realtime ? "" : "~"}{p.avail} disponibles</div></button>); })}
+              <button key={id} onClick={() => { setSelected(p); setActiveTab("map"); setMapCenter([p.lat, p.lng]); setMapZoom(16); }} className="card-appear w-full text-left p-4 bg-gray-50 dark:bg-gray-800/30 border border-black/5 dark:border-white/5 rounded-2xl mb-2.5 active:bg-gray-100"><div className="font-semibold text-gray-900 dark:text-white">{p.name}</div><div className="text-xs text-gray-400 mt-0.5">{p.addr}</div><div className="text-sm mt-2" style={{ color: p.avail > 0 ? "var(--free)" : "var(--full)" }}>{p.realtime ? "" : "~"}{p.avail} disponibles</div></button>); })}
           </div>
         </div>
       )}
@@ -262,10 +262,9 @@ export default function Home() {
             <div className="w-18 h-18 rounded-full bg-gray-100 dark:bg-gray-800/50 flex items-center justify-center mx-auto mb-3"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-400"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
             <div className="text-xl font-bold text-center mb-0.5 text-gray-900 dark:text-white">Utilisateur ParkSpot</div>
             <div className="text-sm text-gray-400 text-center mb-5">{city?.name || "France"}{city?.department ? ` · ${city.department}` : ""}</div>
-            <div className="grid grid-cols-3 gap-2 mb-6">
-              <div className="bg-gray-100 dark:bg-gray-800/50 rounded-xl p-3.5 text-center"><div className="font-mono text-xl font-semibold text-gray-900 dark:text-white">{favorites.length}</div><div className="text-[10px] text-gray-400 mt-0.5 uppercase">Favoris</div></div>
-              <div className="bg-gray-100 dark:bg-gray-800/50 rounded-xl p-3.5 text-center"><div className="font-mono text-xl font-semibold text-gray-900 dark:text-white">{parkings.length}</div><div className="text-[10px] text-gray-400 mt-0.5 uppercase">Parkings</div></div>
-              <div className="bg-gray-100 dark:bg-gray-800/50 rounded-xl p-3.5 text-center"><div className="font-mono text-xl font-semibold text-gray-900 dark:text-white capitalize">{dataSource === "api" ? "Live" : dataSource}</div><div className="text-[10px] text-gray-400 mt-0.5 uppercase">Source</div></div>
+            <div className="grid grid-cols-2 gap-2.5 mb-6">
+              <div className="bg-gray-100 dark:bg-gray-800/50 rounded-2xl p-4 text-center"><div className="text-2xl font-bold text-gray-900 dark:text-white">{favorites.length}</div><div className="text-[10px] text-gray-400 mt-1 uppercase tracking-widest font-semibold">Favoris</div></div>
+              <div className="bg-gray-100 dark:bg-gray-800/50 rounded-2xl p-4 text-center"><div className="text-2xl font-bold text-gray-900 dark:text-white">{parkings.length}</div><div className="text-[10px] text-gray-400 mt-1 uppercase tracking-widest font-semibold">Parkings</div></div>
             </div>
 
             {/* Parked car section */}
