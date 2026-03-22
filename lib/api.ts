@@ -375,9 +375,9 @@ export async function loadParkingsForCity(city: CityInfo): Promise<{ data: Parki
   // Multiple BNLS query strategies
   async function tryBnls() {
     const queries = [
-      `${base}&where=within_distance(coordonneesxy,geom'POINT(${city.lng} ${city.lat})',20km)`,
-      `${base}&where=within_distance(geo_point_2d,geom'POINT(${city.lng} ${city.lat})',20km)`,
-      `${base}&geofilter.distance=${city.lat},${city.lng},20000`,
+      `${base}&where=within_distance(coordonneesxy,geom'POINT(${city.lng} ${city.lat})',30km)`,
+      `${base}&where=within_distance(geo_point_2d,geom'POINT(${city.lng} ${city.lat})',30km)`,
+      `${base}&geofilter.distance=${city.lat},${city.lng},30000`,
       `${base}&refine=com_nom:${encodeURIComponent(city.name)}`,
     ];
     for (const url of queries) {
@@ -395,8 +395,26 @@ export async function loadParkingsForCity(city: CityInfo): Promise<{ data: Parki
     console.warn(`[API] BNLS: no data for ${city.name}`);
   }
 
-  const fs = [tryBnls()];
+  // For IDF suburbs — also query BNLS centered on Paris
   const isIDF = city.lat > 48.5 && city.lat < 49.1 && city.lng > 1.8 && city.lng < 3.2;
+  const isNotCentralParis = isIDF && (Math.abs(city.lat - 48.8566) > 0.05 || Math.abs(city.lng - 2.3522) > 0.05);
+
+  async function tryBnlsParis() {
+    if (!isNotCentralParis) return;
+    try {
+      const d = await fetchT(`${base}&where=within_distance(coordonneesxy,geom'POINT(2.3522 48.8566)',25km)`);
+      const recs = d.results || [];
+      if (recs.length > 0) {
+        const p = parseBnls(recs, "Paris");
+        // Only add parkings not already in results (by location)
+        const newOnes = p.filter(np => !results.some(r => Math.abs(r.lat - np.lat) < 0.001 && Math.abs(r.lng - np.lng) < 0.001));
+        results.push(...newOnes); ok = true;
+        console.log(`[API] BNLS Paris (for IDF): ${newOnes.length} additional`);
+      }
+    } catch {}
+  }
+
+  const fs = [tryBnls(), tryBnlsParis()];
   const isLyon = city.lat > 45.6 && city.lat < 45.9 && city.lng > 4.6 && city.lng < 5.1;
   const isBordeaux = city.lat > 44.7 && city.lat < 45.0 && city.lng > -0.8 && city.lng < -0.3;
   const isMarseille = city.lat > 43.2 && city.lat < 43.4 && city.lng > 5.2 && city.lng < 5.6;
