@@ -1,15 +1,16 @@
 "use client";
 import { useRef, useCallback, useMemo, useState } from "react";
-import { HiOutlineBookmark, HiBookmark, HiOutlineArrowRight, HiX } from "react-icons/hi";
+import { HiOutlineBookmark, HiBookmark, HiOutlineArrowRight, HiX, HiOutlineShare, HiOutlineLocationMarker } from "react-icons/hi";
 import type { Parking } from "@/lib/api";
 import { estimatePrice, distanceKm } from "@/lib/api";
 
-interface Props { parking: Parking | null; onClose: () => void; isFav: boolean; onToggleFav: () => void; userPos: [number, number] | null; }
+interface Props { parking: Parking | null; onClose: () => void; isFav: boolean; onToggleFav: () => void; userPos: [number, number] | null; onParkHere?: () => void; }
 
-export default function DetailSheet({ parking, onClose, isFav, onToggleFav, userPos }: Props) {
+export default function DetailSheet({ parking, onClose, isFav, onToggleFav, userPos, onParkHere }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const sy = useRef(0); const cy = useRef(0); const dr = useRef(false);
   const [duration, setDuration] = useState(2);
+  const [shared, setShared] = useState(false);
   const onTS = useCallback((e: React.TouchEvent) => { sy.current = e.touches[0].clientY; dr.current = true; ref.current?.classList.add("sheet-dragging"); }, []);
   const onTM = useCallback((e: React.TouchEvent) => { if (!dr.current || !ref.current) return; cy.current = e.touches[0].clientY; const d = cy.current - sy.current; if (d > 0) ref.current.style.transform = `translateY(${d}px)`; }, []);
   const onTE = useCallback(() => { if (!dr.current) return; dr.current = false; ref.current?.classList.remove("sheet-dragging"); if (cy.current - sy.current > 80) { onClose(); if (ref.current) ref.current.style.transform = ""; } else if (ref.current) ref.current.style.transform = "translateY(0)"; sy.current = 0; cy.current = 0; }, [onClose]);
@@ -21,6 +22,19 @@ export default function DetailSheet({ parking, onClose, isFav, onToggleFav, user
   const hours = useMemo(() => Array.from({ length: 24 }, (_, i) => { const b = i >= 7 && i <= 9 ? 0.9 : i >= 17 && i <= 19 ? 0.85 : i >= 10 && i <= 16 ? 0.6 : i >= 20 && i <= 22 ? 0.4 : 0.15; return Math.min(1, b + Math.random() * 0.15); }), [p?.id]);
   const navigateTo = () => { if (!p) return; const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent); if (iOS) window.open(`maps://maps.apple.com/?daddr=${p.lat},${p.lng}&dirflg=d`); else window.open(`https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}&travelmode=driving`); };
   const lastUpdateText = useMemo(() => { if (!p) return ""; try { const d = new Date(p.lastUpdate); const diff = Math.floor((Date.now() - d.getTime()) / 60000); if (diff < 2) return "À l'instant"; if (diff < 60) return `Il y a ${diff} min`; if (diff < 1440) return `Il y a ${Math.floor(diff / 60)}h`; return `Il y a ${Math.floor(diff / 1440)}j`; } catch { return ""; } }, [p]);
+
+  async function sharePark() {
+    if (!p) return;
+    const text = `${p.name} — ${p.avail >= 0 ? (p.realtime ? p.avail : "~" + p.avail) + " places dispo" : p.total + " places"} · ${p.type === "free" ? "Gratuit" : p.price}\nhttps://www.google.com/maps?q=${p.lat},${p.lng}`;
+    if (navigator.share) {
+      try { await navigator.share({ title: `ParkSpot · ${p.name}`, text }); } catch {}
+    } else {
+      await navigator.clipboard.writeText(text);
+      setShared(true);
+      setTimeout(() => setShared(false), 2000);
+    }
+  }
+
   if (!p) return null;
   const nowH = new Date().getHours();
   const est = estimatePrice(p, duration);
@@ -39,7 +53,6 @@ export default function DetailSheet({ parking, onClose, isFav, onToggleFav, user
   return (
     <div ref={ref} className={`fixed bottom-0 left-0 right-0 z-[1800] bg-white dark:bg-[#131318] rounded-t-3xl border-t border-black/8 dark:border-white/8 shadow-[0_-8px_30px_rgba(0,0,0,0.1)] safe-bottom overflow-y-auto ${parking ? "sheet-visible" : "sheet-enter"}`}
       style={{ maxHeight: "85vh", paddingBottom: "calc(68px + max(8px, env(safe-area-inset-bottom, 8px)))" }}>
-      {/* Handle + close button */}
       <div className="relative" onTouchStart={onTS} onTouchMove={onTM} onTouchEnd={onTE}>
         <div className="flex justify-center py-2.5 cursor-pointer" onClick={onClose}><div className="w-9 h-1 bg-black/15 dark:bg-white/15 rounded-full" /></div>
         <button onClick={onClose} className="absolute top-2 right-4 w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-400 active:bg-gray-200 dark:active:bg-gray-700 z-10"><HiX size={16} /></button>
@@ -47,9 +60,7 @@ export default function DetailSheet({ parking, onClose, isFav, onToggleFav, user
       <div className="px-6 pb-5">
         <div className="flex items-center gap-2 mb-1.5">
           <span className={`text-[11px] font-semibold tracking-[2px] uppercase ${p.type === "free" ? "text-[var(--free)]" : "text-[var(--paid)]"}`}>{p.type === "free" ? "Gratuit" : "Payant"}</span>
-          <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide ${p.realtime ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400" : "bg-orange-100 dark:bg-orange-900/30 text-orange-500 dark:text-orange-400"}`}>
-            {p.realtime ? "⚡ Temps réel" : "~ Estimé"}
-          </span>
+          <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide ${p.realtime ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400" : "bg-orange-100 dark:bg-orange-900/30 text-orange-500 dark:text-orange-400"}`}>{p.realtime ? "⚡ Temps réel" : "~ Estimé"}</span>
         </div>
         <h2 className="text-2xl font-bold tracking-tight mb-1 text-gray-900 dark:text-white pr-8">{p.name}</h2>
         <p className="text-sm text-gray-400 mb-1">{p.addr}{p.city ? ` · ${p.city}` : ""}</p>
@@ -71,9 +82,18 @@ export default function DetailSheet({ parking, onClose, isFav, onToggleFav, user
           <div className="flex items-center gap-3"><span className="text-xs text-gray-400 shrink-0">30m</span><input type="range" min="0.5" max="24" step="0.5" value={duration} onChange={(e) => setDuration(parseFloat(e.target.value))} className="flex-1 accent-[var(--accent)]" style={{ height: "4px" }} /><span className="text-xs text-gray-400 shrink-0">24h</span></div>
           <div className="text-center text-xs text-gray-500 mt-2">{duration < 1 ? `${duration * 60} min` : duration === 1 ? "1 heure" : `${duration} heures`}</div>
         </div>
+        {/* Actions — 2x2 grid */}
+        <div className="grid grid-cols-2 gap-2.5 mb-2.5">
+          <button onClick={navigateTo} className="flex items-center justify-center gap-2 p-3.5 rounded-[14px] bg-[var(--free)] text-black font-semibold text-sm active:scale-[0.97]"><HiOutlineArrowRight size={16} /> Itinéraire</button>
+          <button onClick={onToggleFav} className={`flex items-center justify-center gap-2 p-3.5 rounded-[14px] font-semibold text-sm active:scale-[0.97] ${isFav ? "bg-[var(--paid-bg)] text-[var(--paid)]" : "bg-gray-100 dark:bg-gray-800/50 border border-black/8 dark:border-white/8 text-gray-900 dark:text-white"}`}>{isFav ? <HiBookmark size={16} /> : <HiOutlineBookmark size={16} />} {isFav ? "Sauvegardé" : "Sauvegarder"}</button>
+        </div>
         <div className="grid grid-cols-2 gap-2.5">
-          <button onClick={navigateTo} className="flex items-center justify-center gap-2 p-4 rounded-[14px] bg-[var(--free)] text-black font-semibold text-sm active:scale-[0.97]"><HiOutlineArrowRight size={16} /> Itinéraire</button>
-          <button onClick={onToggleFav} className={`flex items-center justify-center gap-2 p-4 rounded-[14px] font-semibold text-sm active:scale-[0.97] ${isFav ? "bg-[var(--paid-bg)] text-[var(--paid)]" : "bg-gray-100 dark:bg-gray-800/50 border border-black/8 dark:border-white/8 text-gray-900 dark:text-white"}`}>{isFav ? <HiBookmark size={16} /> : <HiOutlineBookmark size={16} />} {isFav ? "Sauvegardé" : "Sauvegarder"}</button>
+          <button onClick={sharePark} className="flex items-center justify-center gap-2 p-3.5 rounded-[14px] bg-gray-100 dark:bg-gray-800/50 border border-black/8 dark:border-white/8 text-gray-700 dark:text-gray-300 font-semibold text-sm active:scale-[0.97]">
+            <HiOutlineShare size={16} /> {shared ? "Copié !" : "Partager"}
+          </button>
+          <button onClick={onParkHere} className="flex items-center justify-center gap-2 p-3.5 rounded-[14px] bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-[var(--accent)] font-semibold text-sm active:scale-[0.97]">
+            <HiOutlineLocationMarker size={16} /> Garé ici
+          </button>
         </div>
       </div>
     </div>
