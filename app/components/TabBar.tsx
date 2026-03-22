@@ -17,7 +17,7 @@ interface Props {
 
 export default function TabBar({ active, onChange }: Props) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-[2000] bg-white dark:bg-[#0e0e12] border-t border-black/8 dark:border-white/8 tab-bar-safe">
+    <nav className="fixed left-0 right-0 z-[2000] bg-white dark:bg-[#0e0e12] border-t border-black/8 dark:border-white/8" style={{ bottom: 0, paddingBottom: 34 }}>
       <div className="flex">
       {tabs.map((t) => {
         const Icon = t.icon;
@@ -27,7 +27,7 @@ export default function TabBar({ active, onChange }: Props) {
             key={t.id}
             onTouchStart={(e) => { e.preventDefault(); onChange(t.id); }}
             onClick={() => onChange(t.id)}
-            className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-h-[52px] pt-1 
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 h-[50px]
               ${isActive ? "text-[var(--free)]" : "text-black/30 dark:text-white/30"}`}
           >
             <Icon size={22} />
