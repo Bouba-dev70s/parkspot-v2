@@ -17,7 +17,8 @@ interface Props {
 
 export default function TabBar({ active, onChange }: Props) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-[2000] bg-white dark:bg-[#0e0e12] border-t border-black/8 dark:border-white/8 flex" style={{ paddingBottom: "clamp(34px, 5vh, 50px)" }}>
+    <nav className="fixed bottom-0 left-0 right-0 z-[2000] bg-white dark:bg-[#0e0e12] border-t border-black/8 dark:border-white/8 tab-bar-safe">
+      <div className="flex">
       {tabs.map((t) => {
         const Icon = t.icon;
         const isActive = active === t.id;
@@ -34,6 +35,7 @@ export default function TabBar({ active, onChange }: Props) {
           </button>
         );
       })}
+      </div>
     </nav>
   );
 }

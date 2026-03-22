@@ -91,3 +91,20 @@ body { font-family: var(--font-outfit), sans-serif; overflow: hidden; position: 
   .safe-bottom { padding-bottom: max(8px, env(safe-area-inset-bottom, 8px)); }
   .safe-top { padding-top: max(0px, env(safe-area-inset-top, 0px)); }
 }
+
+/* Tab bar — bulletproof for PWA standalone on all iPhones */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .tab-bar-safe { padding-bottom: env(safe-area-inset-bottom, 34px) !important; }
+}
+@supports (padding-bottom: constant(safe-area-inset-bottom)) {
+  .tab-bar-safe { padding-bottom: constant(safe-area-inset-bottom) !important; }
+}
+/* Fallback for PWA standalone where env() fails */
+@media screen and (display-mode: standalone) {
+  .tab-bar-safe { padding-bottom: 34px !important; }
+}
+@media screen and (display-mode: standalone) {
+  @supports (padding-bottom: env(safe-area-inset-bottom)) {
+    .tab-bar-safe { padding-bottom: env(safe-area-inset-bottom, 34px) !important; }
+  }
+}
