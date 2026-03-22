@@ -28,7 +28,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
         <script dangerouslySetInnerHTML={{ __html: `
-          try{if(localStorage.getItem('parkspot_theme')==='dark')document.documentElement.classList.add('dark')}catch(e){}
+          try{
+            var d=localStorage.getItem('parkspot_theme')==='dark';
+            if(d){document.documentElement.classList.add('dark');document.documentElement.style.background='#0e0e12'}
+            else{document.documentElement.style.background='#fff'}
+          }catch(e){}
           if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(function(regs){regs.forEach(function(r){r.unregister()})});caches.keys().then(function(names){names.forEach(function(n){caches.delete(n)})})}
         ` }} />
       </head>

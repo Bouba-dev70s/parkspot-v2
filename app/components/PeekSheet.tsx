@@ -17,7 +17,7 @@ export default function PeekSheet({ parkings, onSelect, freeCount, paidCount, ti
 
   return (
     <div ref={sheetRef} className="fixed left-0 right-0 z-[1000] bg-white dark:bg-[#131318] border-t border-black/8 dark:border-white/8 rounded-t-[20px] flex flex-col shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"
-      style={{ bottom: "86px", maxHeight: "55%", transform: ty, transition: "transform 0.3s cubic-bezier(0.25,0.1,0.25,1)", willChange: "transform" }}
+      style={{ bottom: "50px", maxHeight: "55%", transform: ty, transition: "transform 0.3s cubic-bezier(0.25,0.1,0.25,1)", willChange: "transform" }}
       onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
       <div className="flex justify-center py-2.5 cursor-pointer" onClick={toggle}><div className="w-9 h-1 bg-black/15 dark:bg-white/15 rounded-full" /></div>
       <div className="flex items-center justify-between px-5 pb-3" onClick={toggle}>

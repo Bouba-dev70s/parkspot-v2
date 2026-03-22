@@ -36,7 +36,6 @@ export default function TabBar({ active, onChange }: Props) {
         );
       })}
       </div>
-      <div className="h-[16px]" />
     </nav>
   );
 }
