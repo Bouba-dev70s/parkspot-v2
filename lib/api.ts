@@ -364,21 +364,36 @@ function parseLille(records: any[]): Parking[] {
   return results;
 }
 
+// === SUPPORTED CITIES ===
+export function isCitySupported(lat: number, lng: number): { supported: boolean; zone: string } {
+  if (lat > 48.5 && lat < 49.1 && lng > 1.8 && lng < 3.2) return { supported: true, zone: "idf" };
+  if (lat > 45.6 && lat < 45.9 && lng > 4.6 && lng < 5.1) return { supported: true, zone: "lyon" };
+  if (lat > 43.15 && lat < 43.45 && lng > 5.1 && lng < 5.7) return { supported: true, zone: "marseille" };
+  if (lat > 44.7 && lat < 45.0 && lng > -0.8 && lng < -0.3) return { supported: true, zone: "bordeaux" };
+  if (lat > 50.5 && lat < 50.8 && lng > 2.8 && lng < 3.3) return { supported: true, zone: "lille" };
+  return { supported: false, zone: "none" };
+}
+
 // === LOAD PARKINGS FOR CITY ===
 export async function loadParkingsForCity(city: CityInfo): Promise<{ data: Parking[]; source: string; timestamp: string }> {
   const results: Parking[] = [];
   let ok = false;
   const ck = `ps_${city.name.toLowerCase().replace(/\s/g, "_")}`;
   const ts = nowISO();
+  const { supported, zone } = isCitySupported(city.lat, city.lng);
+
+  if (!supported) {
+    return { data: [], source: "unsupported", timestamp: ts };
+  }
+
   const base = "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/mobilityref-france-base-nationale-des-lieux-de-stationnement/records?limit=100";
 
-  // Multiple BNLS query strategies
+  // BNLS for supported cities only
   async function tryBnls() {
     const queries = [
       `${base}&where=within_distance(coordonneesxy,geom'POINT(${city.lng} ${city.lat})',30km)`,
       `${base}&where=within_distance(geo_point_2d,geom'POINT(${city.lng} ${city.lat})',30km)`,
       `${base}&geofilter.distance=${city.lat},${city.lng},30000`,
-      `${base}&refine=com_nom:${encodeURIComponent(city.name)}`,
     ];
     for (const url of queries) {
       try {
@@ -392,56 +407,37 @@ export async function loadParkingsForCity(city: CityInfo): Promise<{ data: Parki
         }
       } catch {}
     }
-    console.warn(`[API] BNLS: no data for ${city.name}`);
   }
 
-  // For IDF suburbs — also query BNLS centered on Paris
-  const isIDF = city.lat > 48.5 && city.lat < 49.1 && city.lng > 1.8 && city.lng < 3.2;
-  const isNotCentralParis = isIDF && (Math.abs(city.lat - 48.8566) > 0.05 || Math.abs(city.lng - 2.3522) > 0.05);
+  const fs = [tryBnls()];
 
-  async function tryBnlsParis() {
-    if (!isNotCentralParis) return;
-    try {
-      const d = await fetchT(`${base}&where=within_distance(coordonneesxy,geom'POINT(2.3522 48.8566)',25km)`);
-      const recs = d.results || [];
-      if (recs.length > 0) {
-        const p = parseBnls(recs, "Paris");
-        // Only add parkings not already in results (by location)
-        const newOnes = p.filter(np => !results.some(r => Math.abs(r.lat - np.lat) < 0.001 && Math.abs(r.lng - np.lng) < 0.001));
-        results.push(...newOnes); ok = true;
-        console.log(`[API] BNLS Paris (for IDF): ${newOnes.length} additional`);
-      }
-    } catch {}
-  }
-
-  const fs = [tryBnls(), tryBnlsParis()];
-  const isLyon = city.lat > 45.6 && city.lat < 45.9 && city.lng > 4.6 && city.lng < 5.1;
-  const isBordeaux = city.lat > 44.7 && city.lat < 45.0 && city.lng > -0.8 && city.lng < -0.3;
-  const isMarseille = city.lat > 43.2 && city.lat < 43.4 && city.lng > 5.2 && city.lng < 5.6;
-  const isLille = city.lat > 50.5 && city.lat < 50.8 && city.lng > 2.8 && city.lng < 3.3;
-
-  if (isIDF) {
+  // === PARIS / IDF ===
+  if (zone === "idf") {
+    // Also get BNLS from Paris center for IDF suburbs
+    const isSuburb = Math.abs(city.lat - 48.8566) > 0.05 || Math.abs(city.lng - 2.3522) > 0.05;
+    if (isSuburb) {
+      fs.push(fetchT(`${base}&where=within_distance(coordonneesxy,geom'POINT(2.3522 48.8566)',25km)`)
+        .then((d) => { const recs = d.results || []; if (recs.length > 0) { const p = parseBnls(recs, "Paris"); const newOnes = p.filter(np => !results.some(r => Math.abs(r.lat - np.lat) < 0.001 && Math.abs(r.lng - np.lng) < 0.001)); results.push(...newOnes); ok = true; } }).catch(() => {}));
+    }
     fs.push(
       fetchT("https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/stationnement-en-ouvrage/records?limit=100").then((d) => { const p = parseParisGarages(d.results || []); results.push(...p); ok = true; console.log(`[API] Paris garages: ${p.length}`); }).catch(() => {}),
       fetchT("https://opendata.saemes.fr/api/explore/v2.1/catalog/datasets/places-disponibles-parkings-saemes/records?limit=100").then((d) => { const p = parseSaemes(d.results || []); results.push(...p); ok = true; console.log(`[API] Saemes: ${p.length}`); }).catch(() => {}),
     );
   }
 
-  if (isLyon) {
+  // === LYON ===
+  if (zone === "lyon") {
     fs.push(
-      // Try OpenDataSoft endpoint first (CORS-friendly), fallback to WFS
       fetchT("https://data.grandlyon.com/fr/datapusher/ws/rdata/lpa_mobilite.parking/all.json?maxfeatures=100")
         .then((d) => { const features = (d.values || d.features || d) as any[]; if (Array.isArray(features)) { const p = parseLyon(features); results.push(...p); ok = true; console.log(`[API] Lyon: ${p.length}`); } })
-        .catch(() => {
-          console.warn("[API] Lyon primary failed, trying WFS...");
-          return fetchT("https://download.data.grandlyon.com/ws/rdata/lpa_mobilite.parking/all.json?maxfeatures=100")
-            .then((d) => { const features = (d.values || d.features || d) as any[]; if (Array.isArray(features)) { const p = parseLyon(features); results.push(...p); ok = true; console.log(`[API] Lyon WFS: ${p.length}`); } })
-            .catch((e) => console.warn("[API] Lyon all failed:", e.message));
-        }),
+        .catch(() => fetchT("https://download.data.grandlyon.com/ws/rdata/lpa_mobilite.parking/all.json?maxfeatures=100")
+          .then((d) => { const features = (d.values || d.features || d) as any[]; if (Array.isArray(features)) { const p = parseLyon(features); results.push(...p); ok = true; } })
+          .catch((e) => console.warn("[API] Lyon failed:", e.message))),
     );
   }
 
-  if (isBordeaux) {
+  // === BORDEAUX ===
+  if (zone === "bordeaux") {
     fs.push(
       fetchT("https://opendata.bordeaux-metropole.fr/api/explore/v2.1/catalog/datasets/st_park_p/records?limit=100")
         .then((d) => { const p = parseBordeaux(d.results || []); results.push(...p); ok = true; console.log(`[API] Bordeaux: ${p.length}`); })
@@ -449,7 +445,8 @@ export async function loadParkingsForCity(city: CityInfo): Promise<{ data: Parki
     );
   }
 
-  if (isMarseille) {
+  // === MARSEILLE ===
+  if (zone === "marseille") {
     fs.push(
       fetchT("https://data.ampmetropole.fr/api/explore/v2.1/catalog/datasets/disponibilites-des-places-de-parkings/records?limit=100")
         .then((d) => { const p = parseMarseille(d.results || []); results.push(...p); ok = true; console.log(`[API] Marseille: ${p.length}`); })
@@ -457,7 +454,8 @@ export async function loadParkingsForCity(city: CityInfo): Promise<{ data: Parki
     );
   }
 
-  if (isLille) {
+  // === LILLE ===
+  if (zone === "lille") {
     fs.push(
       fetchT("https://opendata.lillemetropole.fr/api/explore/v2.1/catalog/datasets/disponibilite-parkings/records?limit=100")
         .then((d) => { const p = parseLille(d.results || []); results.push(...p); ok = true; console.log(`[API] Lille: ${p.length}`); })

@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import TabBar, { type TabId } from "./components/TabBar";
 import PeekSheet from "./components/PeekSheet";
 import DetailSheet from "./components/DetailSheet";
-import { loadParkingsForCity, refreshSaemes, reverseGeocode, searchAddress, searchCity, sortByProximity, distanceKm, type Parking, type CityInfo } from "@/lib/api";
+import { loadParkingsForCity, refreshSaemes, reverseGeocode, searchAddress, searchCity, sortByProximity, distanceKm, isCitySupported, type Parking, type CityInfo } from "@/lib/api";
 
 const Map = dynamic(() => import("./components/Map"), { ssr: false });
 type Step = "splash" | "detecting" | "confirm" | "ready";
@@ -145,8 +145,8 @@ export default function Home() {
           {city ? (<><h1 className="text-xl font-bold mb-1 text-gray-500">Vous êtes à</h1><h2 className="text-4xl font-extrabold mb-1" style={{ color: "var(--accent)" }}>{city.name}</h2>{city.department && <p className="text-sm text-gray-400 mb-8">{city.department}</p>}{!city.department && <div className="mb-8" />}<button onClick={() => confirmCity(city)} className="w-full py-4 rounded-2xl bg-[var(--free)] text-black font-bold text-lg mb-3 active:scale-[0.97] shadow-lg shadow-green-500/20">Oui, trouver des parkings</button><button onClick={() => { setCity(null); setCityQuery(""); }} className="w-full py-3.5 rounded-2xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 font-semibold active:scale-[0.97]">Non, changer de ville</button></>) : (<>
             <h1 className="text-2xl font-bold mb-2">Où êtes-vous ?</h1><p className="text-sm text-gray-400 mb-6">Tapez le nom de votre ville</p>
             <input type="text" value={cityQuery} onChange={(e) => setCityQuery(e.target.value)} placeholder="Paris, Lyon, Valenciennes..." className="w-full px-4 py-3.5 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl text-[15px] outline-none mb-3 text-gray-900 dark:text-white placeholder:text-gray-400" autoFocus />
-            <div className="space-y-2 max-h-[280px] overflow-y-auto">{citySuggestions.map((c, i) => (<button key={i} onClick={() => confirmCity(c)} className="w-full text-left p-4 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl active:bg-gray-100 dark:active:bg-gray-700"><div className="font-semibold text-gray-900 dark:text-white">{c.name}</div><div className="text-xs text-gray-400">{c.department}</div></button>))}</div>
-            {cityQuery.length === 0 && (<div className="mt-6"><p className="text-xs text-gray-400 mb-3 uppercase tracking-wide font-semibold">Villes populaires</p><div className="flex flex-wrap gap-2 justify-center">{[{name:"Paris",department:"75",lat:48.8566,lng:2.3522},{name:"Lyon",department:"69",lat:45.7578,lng:4.832},{name:"Marseille",department:"13",lat:43.2965,lng:5.3698},{name:"Lille",department:"59",lat:50.6292,lng:3.0573},{name:"Toulouse",department:"31",lat:43.6047,lng:1.4442},{name:"Bordeaux",department:"33",lat:44.8378,lng:-0.5792}].map((c)=>(<button key={c.name} onClick={()=>confirmCity(c)} className="px-4 py-2 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-full text-sm font-medium text-gray-700 dark:text-gray-300 active:bg-gray-100">{c.name}</button>))}</div></div>)}
+            <div className="space-y-2 max-h-[280px] overflow-y-auto">{citySuggestions.map((c, i) => { const sup = isCitySupported(c.lat, c.lng).supported; return (<button key={i} onClick={() => confirmCity(c)} className="w-full text-left p-4 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl active:bg-gray-100 dark:active:bg-gray-700"><div className="flex items-center gap-2"><span className="font-semibold text-gray-900 dark:text-white">{c.name}</span>{sup && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-green-100 dark:bg-green-900/30 text-green-600">DISPO</span>}</div><div className="text-xs text-gray-400">{c.department}{!sup ? " · Bientôt disponible" : ""}</div></button>); })}</div>
+            {cityQuery.length === 0 && (<div className="mt-6"><p className="text-xs text-gray-400 mb-3 uppercase tracking-wide font-semibold">Villes disponibles</p><div className="flex flex-wrap gap-2 justify-center">{[{name:"Paris",department:"75",lat:48.8566,lng:2.3522},{name:"Lyon",department:"69",lat:45.7578,lng:4.832},{name:"Marseille",department:"13",lat:43.2965,lng:5.3698},{name:"Lille",department:"59",lat:50.6292,lng:3.0573},{name:"Bordeaux",department:"33",lat:44.8378,lng:-0.5792}].map((c)=>(<button key={c.name} onClick={()=>confirmCity(c)} className="px-4 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-full text-sm font-semibold text-green-700 dark:text-green-400 active:bg-green-100 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>{c.name}</button>))}</div><p className="text-[11px] text-gray-400 mt-4">D'autres villes arrivent bientôt</p></div>)}
             <button onClick={detectCity} className="mt-6 text-sm text-[var(--accent)] font-medium">Réessayer la localisation GPS</button>
           </>)}
         </div>
@@ -170,6 +170,24 @@ export default function Home() {
             <button onClick={() => { setMapCenter([parkedCar.lat, parkedCar.lng]); setMapZoom(17); }} className="px-3 py-1.5 bg-white/20 rounded-lg text-xs font-semibold active:bg-white/30">Voir</button>
             <button onClick={clearParked} className="text-white/60 text-lg leading-none">✕</button>
           </div>
+        </div>
+      )}
+
+      {/* UNSUPPORTED CITY SCREEN */}
+      {dataSource === "unsupported" && activeTab === "map" && (
+        <div className="absolute inset-0 z-[900] bg-white dark:bg-[#0e0e12] flex flex-col items-center justify-center px-8 text-center">
+          <div className="w-20 h-20 rounded-3xl bg-gray-100 dark:bg-gray-800/50 flex items-center justify-center mb-6">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-400"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          </div>
+          <h2 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">{city?.name || "Cette ville"}</h2>
+          <p className="text-gray-400 mb-8 leading-relaxed">Les données de stationnement ne sont pas encore disponibles pour cette ville. Nous travaillons à élargir notre couverture.</p>
+          <p className="text-[11px] text-gray-400 uppercase tracking-widest font-semibold mb-4">Villes disponibles</p>
+          <div className="flex flex-wrap gap-2 justify-center mb-8">
+            {[{name:"Paris",lat:48.8566,lng:2.3522,dep:"75"},{name:"Lyon",lat:45.7578,lng:4.832,dep:"69"},{name:"Marseille",lat:43.2965,lng:5.3698,dep:"13"},{name:"Bordeaux",lat:44.8378,lng:-0.5792,dep:"33"},{name:"Lille",lat:50.6292,lng:3.0573,dep:"59"}].map((c)=>(
+              <button key={c.name} onClick={()=>confirmCity({name:c.name,department:c.dep,lat:c.lat,lng:c.lng})} className="px-4 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-full text-sm font-semibold text-green-700 dark:text-green-400 active:bg-green-100 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>{c.name}</button>
+            ))}
+          </div>
+          <button onClick={changeCity} className="text-[var(--accent)] font-semibold text-sm">Changer de ville</button>
         </div>
       )}
 
@@ -283,7 +301,7 @@ export default function Home() {
             <div className="text-xs font-semibold text-gray-400 tracking-[1px] uppercase mb-2.5 mt-5 pl-1">Préférences</div>
             <button onClick={()=>setDark(!dark)} className="w-full p-4 bg-gray-100 dark:bg-gray-800/50 rounded-[14px] mb-2 flex items-center justify-between active:bg-gray-200 dark:active:bg-gray-700"><div className="flex items-center gap-3"><span className="text-lg">🌙</span><div><div className="text-sm font-semibold text-left text-gray-900 dark:text-white">Mode sombre</div><div className="text-xs text-gray-400">Interface sombre pour la nuit</div></div></div><div className={`w-12 h-7 rounded-full relative ${dark?"bg-[var(--free)]":"bg-black/10"}`}><div className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-all ${dark?"left-6":"left-1"}`}/></div></button>
             <div className="text-xs font-semibold text-gray-400 tracking-[1px] uppercase mb-2.5 mt-5 pl-1">À propos</div>
-            <div className="p-4 bg-gray-100 dark:bg-gray-800/50 rounded-[14px]"><div className="text-sm font-semibold text-gray-900 dark:text-white">ParkSpot v3.2</div><div className="text-xs text-gray-400 mt-0.5">Next.js · BNLS · Saemes · LPA Lyon · AMP Marseille · MEL Lille · Bordeaux Métropole</div></div>
+            <div className="p-4 bg-gray-100 dark:bg-gray-800/50 rounded-[14px]"><div className="text-sm font-semibold text-gray-900 dark:text-white">ParkSpot v4.0</div><div className="text-xs text-gray-400 mt-0.5">Paris · Lyon · Marseille · Bordeaux · Lille</div></div>
           </div>
         </div>
       )}
