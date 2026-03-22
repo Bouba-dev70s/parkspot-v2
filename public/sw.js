@@ -1,4 +1,4 @@
-const CACHE_NAME = "parkspot-v5";
+const CACHE_NAME = "parkspot-v6";
 const OFFLINE_URL = "/";
 
 // Files to cache on install
