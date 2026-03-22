@@ -25,9 +25,9 @@ export default function PeekSheet({ parkings, onSelect, freeCount, paidCount, ti
         <span className="font-mono text-xs text-gray-400">{parkings.length}</span>
       </div>
       <div className="flex gap-2 px-5 pb-3.5">
-        <div className="flex-1 p-2.5 bg-gray-100 dark:bg-gray-800/50 rounded-xl text-center"><div className="font-mono text-xl font-bold text-gray-900 dark:text-white">{parkings.length}</div><div className="text-[10px] text-gray-400 uppercase tracking-wide mt-0.5">Parkings</div></div>
-        <div className="flex-1 p-2.5 bg-gray-100 dark:bg-gray-800/50 rounded-xl text-center"><div className="font-mono text-xl font-bold" style={{ color: "var(--paid)" }}>{parkings.reduce((s, p) => s + p.total, 0).toLocaleString("fr-FR")}</div><div className="text-[10px] text-gray-400 uppercase tracking-wide mt-0.5">Places</div></div>
-        <div className="flex-1 p-2.5 bg-gray-100 dark:bg-gray-800/50 rounded-xl text-center"><div className="font-mono text-xl font-bold" style={{ color: "var(--accent)" }}>{parkings.filter(p => p.realtime).length}</div><div className="text-[10px] text-gray-400 uppercase tracking-wide mt-0.5">Temps réel</div></div>
+        <div className="flex-1 py-2.5 bg-gray-50 dark:bg-gray-800/40 rounded-xl text-center"><div className="font-mono text-lg font-bold tabular-nums text-gray-900 dark:text-white">{parkings.length}</div><div className="text-[9px] text-gray-400 uppercase tracking-widest mt-0.5 font-semibold">Parkings</div></div>
+        <div className="flex-1 py-2.5 bg-gray-50 dark:bg-gray-800/40 rounded-xl text-center"><div className="font-mono text-lg font-bold tabular-nums" style={{ color: "var(--paid)" }}>{parkings.reduce((s, p) => s + p.total, 0).toLocaleString("fr-FR")}</div><div className="text-[9px] text-gray-400 uppercase tracking-widest mt-0.5 font-semibold">Places</div></div>
+        <div className="flex-1 py-2.5 bg-gray-50 dark:bg-gray-800/40 rounded-xl text-center"><div className="font-mono text-lg font-bold tabular-nums" style={{ color: "var(--accent)" }}>{parkings.filter(p => p.realtime).length}</div><div className="text-[9px] text-gray-400 uppercase tracking-widest mt-0.5 font-semibold">Temps réel</div></div>
       </div>
       <div className="flex-1 overflow-y-auto px-4 pb-4" style={{ WebkitOverflowScrolling: "touch" }}>
         {parkings.slice(0, 30).map((p) => {
@@ -36,21 +36,18 @@ export default function PeekSheet({ parkings, onSelect, freeCount, paidCount, ti
           const ac = r > 0.3 ? "text-[var(--free)]" : r > 0 ? "text-[var(--paid)]" : "text-[var(--full)]";
           const ic = p.avail === 0 ? "bg-[var(--full)] opacity-50" : p.type === "free" ? "bg-[var(--free)]" : "bg-[var(--paid)]";
           return (
-            <button key={p.id} onClick={() => onSelect(p)} className="w-full flex items-center gap-3.5 p-3.5 bg-gray-50 dark:bg-gray-800/30 border border-black/5 dark:border-white/5 rounded-[14px] mb-2 text-left active:bg-gray-100 dark:active:bg-gray-700">
-              <div className={`w-1 h-10 rounded ${ic}`} />
+            <button key={p.id} onClick={() => onSelect(p)} className="w-full flex items-center gap-3 p-3 bg-white dark:bg-gray-800/20 border border-gray-100 dark:border-white/5 rounded-xl mb-1.5 text-left active:bg-gray-50 dark:active:bg-gray-700/50">
+              <div className={`w-[3px] h-10 rounded-full ${ic}`} />
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5"><span className="text-sm font-semibold truncate text-gray-900 dark:text-white">{p.name}</span>{p.realtime && <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />}</div>
-                <div className="text-xs text-gray-400 truncate mt-0.5">{p.addr}</div>
-                <div className="flex gap-1 mt-1">
-                  {p.services.couvert && <span className="text-[9px] px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-gray-500 dark:text-gray-400">Couvert</span>}
-                  {p.services.pmr && <span className="text-[9px] px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-gray-500 dark:text-gray-400">PMR</span>}
-                  {p.services.electrique && <span className="text-[9px] px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-gray-500 dark:text-gray-400">⚡</span>}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[13px] font-semibold truncate text-gray-900 dark:text-white">{p.name}</span>
+                  {p.realtime && <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />}
                 </div>
+                <div className="text-[11px] text-gray-400 truncate mt-0.5">{p.addr}</div>
               </div>
-              <div className="text-right shrink-0">
-                <div className={`font-mono text-lg font-semibold ${ac}`}>{est ? "~" : ""}{p.avail}</div>
-                <div className="text-[10px] text-gray-400">/ {p.total}</div>
-                <div className={`inline-block mt-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold ${p.type === "free" ? "bg-[var(--free-bg)] text-[var(--free)]" : "bg-[var(--paid-bg)] text-[var(--paid)]"}`}>{p.type === "free" ? "GRATUIT" : p.price}</div>
+              <div className="text-right shrink-0 pl-2">
+                <div className={`font-mono text-base font-bold tabular-nums ${ac}`}>{est ? "~" : ""}{p.avail}</div>
+                <div className={`mt-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-bold tracking-wide ${p.type === "free" ? "bg-[var(--free-bg)] text-[var(--free)]" : "bg-[var(--paid-bg)] text-[var(--paid)]"}`}>{p.type === "free" ? "GRATUIT" : p.price}</div>
               </div>
             </button>);
         })}
