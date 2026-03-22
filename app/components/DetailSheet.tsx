@@ -41,7 +41,7 @@ export default function DetailSheet({ parking, onClose, isFav, onToggleFav, user
 
   return (
     <div ref={ref} className={`fixed bottom-0 left-0 right-0 z-[1800] bg-white dark:bg-[#131318] rounded-t-3xl border-t border-black/8 dark:border-white/8 shadow-[0_-8px_30px_rgba(0,0,0,0.1)] safe-bottom overflow-y-auto ${parking ? "sheet-visible" : "sheet-enter"}`}
-      style={{ maxHeight: "85vh", paddingBottom: "calc(52px + 34px + env(safe-area-inset-bottom, 0px))" }}>
+      style={{ maxHeight: "85vh", paddingBottom: "100px" }}>
       {/* Handle + close */}
       <div className="relative" onTouchStart={onTS} onTouchMove={onTM} onTouchEnd={onTE}>
         <div className="flex justify-center py-2.5 cursor-pointer" onClick={onClose}><div className="w-9 h-1 bg-black/15 dark:bg-white/15 rounded-full" /></div>
