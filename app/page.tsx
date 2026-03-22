@@ -137,7 +137,7 @@ export default function Home() {
 
   // === DETECTION ===
   if (step === "detecting" || step === "confirm") return (
-    <div className="h-[100dvh] w-full bg-white dark:bg-[#0e0e12] text-gray-900 dark:text-white flex flex-col items-center justify-center px-6">
+    <div className="h-[100%] w-full bg-white dark:bg-[#0e0e12] text-gray-900 dark:text-white flex flex-col items-center justify-center px-6">
       {step === "detecting" && (<div className="text-center"><div className="splash-logo mx-auto mb-6" style={{ animation: "none" }}><svg className="animate-spin w-10 h-10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><circle cx="12" cy="12" r="10" opacity="0.3" /><path d="M12 2a10 10 0 019.95 9" strokeLinecap="round" /></svg></div><h1 className="text-2xl font-bold mb-2">Localisation en cours...</h1><p className="text-gray-400">Détection automatique de votre ville</p></div>)}
       {step === "confirm" && (
         <div className="text-center w-full max-w-sm">
@@ -156,7 +156,7 @@ export default function Home() {
 
   // === MAIN APP ===
   return (
-    <div className="h-[100dvh] w-full bg-white dark:bg-[#0e0e12] text-gray-900 dark:text-white">
+    <div className="h-[100%] w-full bg-white dark:bg-[#0e0e12] text-gray-900 dark:text-white">
 
       {/* FILTERS MODAL */}
       {showFilters && (<div className="fixed inset-0 z-[3000] bg-black/50 flex items-end" onClick={(e) => { if (e.target === e.currentTarget) setShowFilters(false); }}><div className="w-full max-w-lg mx-auto bg-white dark:bg-[#1c1c24] rounded-t-3xl p-6 safe-bottom"><div className="flex items-center justify-between mb-6"><h2 className="text-xl font-bold text-gray-900 dark:text-white">Filtres avancés</h2><button onClick={() => setShowFilters(false)} className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-400 text-lg">&times;</button></div><div className="mb-5"><div className="flex justify-between text-sm mb-2"><span className="text-gray-600 dark:text-gray-300">Distance max</span><span className="font-semibold text-gray-900 dark:text-white">{advFilters.maxDistance >= 20 ? "Illimitée" : `${advFilters.maxDistance} km`}</span></div><input type="range" min="1" max="20" value={advFilters.maxDistance} onChange={(e) => setAdvFilters({ ...advFilters, maxDistance: parseInt(e.target.value) })} className="w-full accent-[var(--accent)]" /></div><div className="mb-5"><div className="flex justify-between text-sm mb-2"><span className="text-gray-600 dark:text-gray-300">Prix max /heure</span><span className="font-semibold text-gray-900 dark:text-white">{advFilters.maxPrice === 0 ? "Tous" : `${advFilters.maxPrice.toFixed(1)}€`}</span></div><input type="range" min="0" max="8" step="0.5" value={advFilters.maxPrice} onChange={(e) => setAdvFilters({ ...advFilters, maxPrice: parseFloat(e.target.value) })} className="w-full accent-[var(--accent)]" /></div><div className="mb-5"><span className="text-sm text-gray-600 dark:text-gray-300 block mb-2">Type</span><div className="flex gap-2">{(["all","covered","outdoor"] as const).map((t)=>(<button key={t} onClick={()=>setAdvFilters({...advFilters,parkingType:t})} className={`flex-1 py-2.5 rounded-xl text-sm font-medium border ${advFilters.parkingType===t?"bg-[var(--accent)]/10 border-[var(--accent)] text-[var(--accent)]":"bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500"}`}>{t==="all"?"Tous":t==="covered"?"Couvert":"Extérieur"}</button>))}</div></div><div className="mb-6"><span className="text-sm text-gray-600 dark:text-gray-300 block mb-2">Services</span><div className="flex gap-2"><button onClick={()=>setAdvFilters({...advFilters,pmr:!advFilters.pmr})} className={`px-4 py-2.5 rounded-xl text-sm font-medium border ${advFilters.pmr?"bg-[var(--accent)]/10 border-[var(--accent)] text-[var(--accent)]":"bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500"}`}>♿ PMR ({parkings.filter(p=>p.services.pmr).length})</button><button onClick={()=>setAdvFilters({...advFilters,electrique:!advFilters.electrique})} className={`px-4 py-2.5 rounded-xl text-sm font-medium border ${advFilters.electrique?"bg-[var(--accent)]/10 border-[var(--accent)] text-[var(--accent)]":"bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500"}`}>⚡ Électrique ({parkings.filter(p=>p.services.electrique).length})</button></div></div><div className="flex gap-3"><button onClick={()=>{setAdvFilters(defaultFilters);setShowFilters(false)}} className="flex-1 py-3.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 font-semibold">Réinitialiser</button><button onClick={()=>setShowFilters(false)} className="flex-1 py-3.5 rounded-xl bg-[var(--accent)] text-white font-semibold">{filtered.length} résultats</button></div></div></div>)}
@@ -232,7 +232,7 @@ export default function Home() {
             </div>
           </div>
           {loading ? (<div className="px-5 space-y-3">{[1,2,3,4,5].map((i)=>(<div key={i} className="skeleton h-24 w-full" />))}</div>) : (
-          <div onScroll={onListScroll} className="overflow-y-auto px-5 pb-24" style={{ height: "calc(100dvh - 190px)", WebkitOverflowScrolling: "touch" }}>
+          <div onScroll={onListScroll} className="overflow-y-auto px-5 pb-24" style={{ height: "calc(100% - 190px)", WebkitOverflowScrolling: "touch" }}>
             {filtered.slice(0, listVisible).map((p, idx) => { const r = p.total > 0 ? p.avail / p.total : 0; const d = anchorPoint ? distanceKm(anchorPoint[0], anchorPoint[1], p.lat, p.lng) : null; const est = !p.realtime; return (
               <button key={p.id} onClick={() => { setSelected(p); setActiveTab("map"); setMapCenter([p.lat, p.lng]); setMapZoom(16); }} className="card-appear w-full text-left p-4 bg-white dark:bg-gray-800/20 border border-gray-100 dark:border-white/5 rounded-2xl mb-2 relative overflow-hidden active:bg-gray-50 dark:active:bg-gray-700/50" style={{ animationDelay: `${Math.min(idx * 30, 300)}ms` }}>
                 <div className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-r ${p.type === "free" ? "bg-[var(--free)]" : "bg-[var(--paid)]"}`} />
@@ -264,7 +264,7 @@ export default function Home() {
       {activeTab === "fav" && (
         <div className="absolute inset-0 bg-white dark:bg-[#0e0e12] safe-top pt-4">
           <div className="px-5"><h1 className="text-3xl font-extrabold tracking-tight mb-4">Favoris</h1></div>
-          <div className="overflow-y-auto px-5 pb-24" style={{ height: "calc(100dvh - 120px)" }}>
+          <div className="overflow-y-auto px-5 pb-24" style={{ height: "calc(100% - 120px)" }}>
             {favorites.length === 0 ? (<div className="text-center pt-16 text-gray-400"><div className="text-5xl mb-3 opacity-30">&#9733;</div><div className="text-[15px] font-medium">Aucun parking sauvegardé</div></div>)
             : favorites.map((id) => { const p = parkings.find((x) => x.id === id); if (!p) return null; return (
               <button key={id} onClick={() => { setSelected(p); setActiveTab("map"); setMapCenter([p.lat, p.lng]); setMapZoom(16); }} className="card-appear w-full text-left p-4 bg-gray-50 dark:bg-gray-800/30 border border-black/5 dark:border-white/5 rounded-2xl mb-2.5 active:bg-gray-100"><div className="font-semibold text-gray-900 dark:text-white">{p.name}</div><div className="text-xs text-gray-400 mt-0.5">{p.addr}</div><div className="text-sm mt-2" style={{ color: p.avail > 0 ? "var(--free)" : "var(--full)" }}>{p.realtime ? "" : "~"}{p.avail} disponibles</div></button>); })}
@@ -276,7 +276,7 @@ export default function Home() {
       {activeTab === "profile" && (
         <div className="absolute inset-0 bg-white dark:bg-[#0e0e12] safe-top pt-4">
           <div className="px-5"><h1 className="text-3xl font-extrabold tracking-tight mb-4">Profil</h1></div>
-          <div className="overflow-y-auto px-5 pb-24" style={{ height: "calc(100dvh - 120px)" }}>
+          <div className="overflow-y-auto px-5 pb-24" style={{ height: "calc(100% - 120px)" }}>
             <div className="w-18 h-18 rounded-full bg-gray-100 dark:bg-gray-800/50 flex items-center justify-center mx-auto mb-3"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-400"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
             <div className="text-xl font-bold text-center mb-0.5 text-gray-900 dark:text-white">Utilisateur ParkSpot</div>
             <div className="text-sm text-gray-400 text-center mb-5">{city?.name || "France"}{city?.department ? ` · ${city.department}` : ""}</div>

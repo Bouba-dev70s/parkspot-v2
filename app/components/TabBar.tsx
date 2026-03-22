@@ -17,7 +17,7 @@ interface Props {
 
 export default function TabBar({ active, onChange }: Props) {
   return (
-    <nav className="fixed left-0 right-0 z-[2000] bg-white dark:bg-[#0e0e12] border-t border-black/8 dark:border-white/8" style={{ bottom: 0, paddingBottom: 34 }}>
+    <nav className="fixed inset-x-0 bottom-0 z-[2000] bg-white dark:bg-[#0e0e12] border-t border-black/8 dark:border-white/8">
       <div className="flex">
       {tabs.map((t) => {
         const Icon = t.icon;
@@ -36,6 +36,7 @@ export default function TabBar({ active, onChange }: Props) {
         );
       })}
       </div>
+      <div className="h-[16px]" />
     </nav>
   );
 }

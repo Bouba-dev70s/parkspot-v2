@@ -25,8 +25,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fr" suppressHydrationWarning>
       <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-        <script dangerouslySetInnerHTML={{ __html: `try{if(localStorage.getItem('parkspot_theme')==='dark')document.documentElement.classList.add('dark')}catch(e){} if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js')})}` }} />
+        <script dangerouslySetInnerHTML={{ __html: `
+          try{if(localStorage.getItem('parkspot_theme')==='dark')document.documentElement.classList.add('dark')}catch(e){}
+          if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(function(regs){regs.forEach(function(r){r.unregister()})});caches.keys().then(function(names){names.forEach(function(n){caches.delete(n)})})}
+        ` }} />
       </head>
       <body className={`${outfit.variable} ${jetbrains.variable} antialiased`} style={{ fontFamily: "var(--font-outfit), sans-serif" }}>
         {children}
