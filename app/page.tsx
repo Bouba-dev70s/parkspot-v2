@@ -36,7 +36,7 @@ export default function Home() {
   const [searchAnchor, setSearchAnchor] = useState<[number, number] | null>(null);
   const [addressPin, setAddressPin] = useState<[number, number] | null>(null);
   const [listVisible, setListVisible] = useState(20);
-  const addrTimer = useRef<NodeJS.Timeout>();
+  const addrTimer = useRef<NodeJS.Timeout | null>(null);
 
   // === SPLASH + INIT ===
   useEffect(() => {
