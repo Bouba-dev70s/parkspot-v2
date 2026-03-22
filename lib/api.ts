@@ -39,9 +39,9 @@ let nextId = 1000;
 
 function fetchT(url: string, ms = 10000): Promise<any> {
   return Promise.race([
-    fetch(url).then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }),
+    fetch(url).then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }).catch((e) => { throw new Error(e.message || "Fetch failed"); }),
     new Promise((_, rej) => setTimeout(() => rej(new Error("Timeout")), ms)),
-  ]);
+  ]).catch((e) => { throw e; });
 }
 
 function defaultServices(): ParkingServices {
@@ -255,6 +255,115 @@ function deduplicate(arr: Parking[]): Parking[] {
   return result;
 }
 
+// === LYON — LPA + Q-Park + Indigo via Grand Lyon ===
+function parseLyon(features: any[]): Parking[] {
+  const results: Parking[] = [];
+  for (const f of features) {
+    // Handle both WFS GeoJSON format and REST JSON format
+    const props = f.properties || f;
+    let lat = 0, lng = 0;
+    if (f.geometry?.coordinates) { lng = f.geometry.coordinates[0]; lat = f.geometry.coordinates[1]; }
+    else if (props.lat && props.lng) { lat = parseFloat(props.lat); lng = parseFloat(props.lng); }
+    else if (props.latitude && props.longitude) { lat = parseFloat(props.latitude); lng = parseFloat(props.longitude); }
+    else if (props.the_geom) {
+      const m = String(props.the_geom).match(/POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/);
+      if (m) { lng = parseFloat(m[1]); lat = parseFloat(m[2]); }
+    }
+    if (!lat || !lng) continue;
+    const name = props.parking_name || props.nom || props.name || "Parking Lyon";
+    const total = parseInt(props.total_capacity || props.capacity || props.nb_places || props.capacite || "0");
+    const avail = parseInt(props.available || props.free_places || props.dispo || props.libre || "0");
+    const hasRt = props.available != null || props.free_places != null || props.dispo != null;
+    results.push({
+      id: nextId++, name: name.substring(0, 40), addr: "Lyon",
+      lat, lng, type: "paid", total: total || 200, avail: hasRt ? Math.max(0, avail) : estimateAvail(total || 200),
+      price: "3.00€/h", pricePerHour: 3.0, hours: "24/7",
+      source: "lyon", city: "Lyon",
+      services: { couvert: true, pmr: true, electrique: false, surveillance: true, velo: false, moto: false, autopartage: false, hauteurMax: null },
+      realtime: hasRt, lastUpdate: props.updated_at || props.date_comptage || nowISO(),
+    });
+  }
+  return results;
+}
+
+// === BORDEAUX — OpenDataSoft (temps réel, rafraîchi toutes les 2min30) ===
+function parseBordeaux(records: any[]): Parking[] {
+  const results: Parking[] = [];
+  for (const f of records) {
+    const geo = f.geo_point_2d || f.geom_o || f.geolocalisation;
+    if (!geo) continue;
+    const lat = geo.lat || geo.latitude;
+    const lng = geo.lon || geo.longitude;
+    if (!lat || !lng) continue;
+    const name = f.nom || f.nom_parking || f.libelle || "Parking Bordeaux";
+    const total = parseInt(f.np_total || f.total || f.nb_places || "0");
+    const avail = parseInt(f.np_dispo || f.libres || f.places_disponibles || "0");
+    const hasRt = f.np_dispo != null || f.libres != null;
+    results.push({
+      id: nextId++, name: name.substring(0, 40), addr: (f.adresse || f.voie || "Bordeaux").substring(0, 60),
+      lat, lng, type: "paid", total: total || 200, avail: hasRt ? Math.max(0, avail) : estimateAvail(total || 200),
+      price: "2.50€/h", pricePerHour: 2.5, hours: f.horaires || "24/7",
+      source: "bordeaux", city: "Bordeaux",
+      services: { couvert: (f.type_parking || "").toLowerCase().includes("couvert") || (f.type_parking || "").toLowerCase().includes("souterrain"), pmr: parseInt(f.np_pmr || f.nb_pmr || "0") > 0, electrique: parseInt(f.np_ve || f.nb_ve || "0") > 0, surveillance: true, velo: parseInt(f.np_velo || "0") > 0, moto: parseInt(f.np_2rm || "0") > 0, autopartage: false, hauteurMax: f.hauteur_max ? `${f.hauteur_max}m` : null },
+      realtime: hasRt, lastUpdate: f.date_maj || nowISO(),
+    });
+  }
+  return results;
+}
+
+// === MARSEILLE — Aix-Marseille Provence OpenDataSoft ===
+function parseMarseille(records: any[]): Parking[] {
+  const results: Parking[] = [];
+  for (const f of records) {
+    const geo = f.geo_point_2d || f.coordonnees;
+    if (!geo) continue;
+    const lat = geo.lat || geo.latitude;
+    const lng = geo.lon || geo.longitude;
+    if (!lat || !lng) continue;
+    const name = f.nom || f.nom_parking || f.nom_du_parking || "Parking Marseille";
+    const total = parseInt(f.capacite_totale || f.nb_places || f.capacite || "0");
+    const occupe = parseInt(f.places_occupees || f.occupe || "0");
+    const avail = parseInt(f.places_disponibles || f.dispo || "0");
+    const hasRt = f.places_disponibles != null || f.dispo != null || f.places_occupees != null;
+    const realAvail = hasRt ? (avail > 0 ? avail : Math.max(0, total - occupe)) : estimateAvail(total || 200);
+    results.push({
+      id: nextId++, name: name.substring(0, 40), addr: (f.adresse || "Marseille").substring(0, 60),
+      lat, lng, type: "paid", total: total || 200, avail: realAvail,
+      price: "2.80€/h", pricePerHour: 2.8, hours: f.horaires || "24/7",
+      source: "marseille", city: "Marseille",
+      services: { couvert: true, pmr: parseInt(f.nb_pmr || f.pmr || "0") > 0, electrique: parseInt(f.nb_ve || "0") > 0, surveillance: true, velo: false, moto: false, autopartage: false, hauteurMax: null },
+      realtime: hasRt, lastUpdate: f.date_comptage || f.date_maj || nowISO(),
+    });
+  }
+  return results;
+}
+
+// === LILLE — MEL OpenDataSoft (temps réel) ===
+function parseLille(records: any[]): Parking[] {
+  const results: Parking[] = [];
+  for (const f of records) {
+    const geo = f.geometry || f.geo_point_2d;
+    if (!geo) continue;
+    const lat = geo.lat || geo.latitude || (geo.coordinates ? geo.coordinates[1] : 0);
+    const lng = geo.lon || geo.longitude || (geo.coordinates ? geo.coordinates[0] : 0);
+    if (!lat || !lng) continue;
+    const name = f.nom || f.libelle || f.nom_parking || "Parking Lille";
+    const total = parseInt(f.max || f.nb_places || f.capacite || "0");
+    const avail = parseInt(f.dispo || f.disponible || f.libre || "0");
+    const etat = f.etat || f.statut || "";
+    const hasRt = f.dispo != null || f.disponible != null || f.libre != null;
+    results.push({
+      id: nextId++, name: name.substring(0, 40), addr: (f.adresse || f.commune || "Lille").substring(0, 60),
+      lat, lng, type: "paid", total: total || 200, avail: hasRt ? Math.max(0, avail) : estimateAvail(total || 200),
+      price: "2.20€/h", pricePerHour: 2.2, hours: "24/7",
+      source: "lille", city: f.commune || "Lille",
+      services: { couvert: true, pmr: true, electrique: false, surveillance: true, velo: false, moto: false, autopartage: false, hauteurMax: null },
+      realtime: hasRt && etat !== "FERME", lastUpdate: f.datemaj || nowISO(),
+    });
+  }
+  return results;
+}
+
 // === LOAD PARKINGS FOR CITY ===
 export async function loadParkingsForCity(city: CityInfo): Promise<{ data: Parking[]; source: string; timestamp: string }> {
   const results: Parking[] = [];
@@ -288,10 +397,53 @@ export async function loadParkingsForCity(city: CityInfo): Promise<{ data: Parki
 
   const fs = [tryBnls()];
   const isIDF = city.lat > 48.5 && city.lat < 49.1 && city.lng > 1.8 && city.lng < 3.2;
+  const isLyon = city.lat > 45.6 && city.lat < 45.9 && city.lng > 4.6 && city.lng < 5.1;
+  const isBordeaux = city.lat > 44.7 && city.lat < 45.0 && city.lng > -0.8 && city.lng < -0.3;
+  const isMarseille = city.lat > 43.2 && city.lat < 43.4 && city.lng > 5.2 && city.lng < 5.6;
+  const isLille = city.lat > 50.5 && city.lat < 50.8 && city.lng > 2.8 && city.lng < 3.3;
+
   if (isIDF) {
     fs.push(
-      fetchT("https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/stationnement-en-ouvrage/records?limit=100").then((d) => { const p = parseParisGarages(d.results || []); results.push(...p); ok = true; }).catch(() => {}),
-      fetchT("https://opendata.saemes.fr/api/explore/v2.1/catalog/datasets/places-disponibles-parkings-saemes/records?limit=100").then((d) => { const p = parseSaemes(d.results || []); results.push(...p); ok = true; }).catch(() => {}),
+      fetchT("https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/stationnement-en-ouvrage/records?limit=100").then((d) => { const p = parseParisGarages(d.results || []); results.push(...p); ok = true; console.log(`[API] Paris garages: ${p.length}`); }).catch(() => {}),
+      fetchT("https://opendata.saemes.fr/api/explore/v2.1/catalog/datasets/places-disponibles-parkings-saemes/records?limit=100").then((d) => { const p = parseSaemes(d.results || []); results.push(...p); ok = true; console.log(`[API] Saemes: ${p.length}`); }).catch(() => {}),
+    );
+  }
+
+  if (isLyon) {
+    fs.push(
+      // Try OpenDataSoft endpoint first (CORS-friendly), fallback to WFS
+      fetchT("https://data.grandlyon.com/fr/datapusher/ws/rdata/lpa_mobilite.parking/all.json?maxfeatures=100")
+        .then((d) => { const features = (d.values || d.features || d) as any[]; if (Array.isArray(features)) { const p = parseLyon(features); results.push(...p); ok = true; console.log(`[API] Lyon: ${p.length}`); } })
+        .catch(() => {
+          console.warn("[API] Lyon primary failed, trying WFS...");
+          return fetchT("https://download.data.grandlyon.com/ws/rdata/lpa_mobilite.parking/all.json?maxfeatures=100")
+            .then((d) => { const features = (d.values || d.features || d) as any[]; if (Array.isArray(features)) { const p = parseLyon(features); results.push(...p); ok = true; console.log(`[API] Lyon WFS: ${p.length}`); } })
+            .catch((e) => console.warn("[API] Lyon all failed:", e.message));
+        }),
+    );
+  }
+
+  if (isBordeaux) {
+    fs.push(
+      fetchT("https://opendata.bordeaux-metropole.fr/api/explore/v2.1/catalog/datasets/st_park_p/records?limit=100")
+        .then((d) => { const p = parseBordeaux(d.results || []); results.push(...p); ok = true; console.log(`[API] Bordeaux: ${p.length}`); })
+        .catch((e) => console.warn("[API] Bordeaux:", e.message)),
+    );
+  }
+
+  if (isMarseille) {
+    fs.push(
+      fetchT("https://data.ampmetropole.fr/api/explore/v2.1/catalog/datasets/disponibilites-des-places-de-parkings/records?limit=100")
+        .then((d) => { const p = parseMarseille(d.results || []); results.push(...p); ok = true; console.log(`[API] Marseille: ${p.length}`); })
+        .catch((e) => console.warn("[API] Marseille:", e.message)),
+    );
+  }
+
+  if (isLille) {
+    fs.push(
+      fetchT("https://opendata.lillemetropole.fr/api/explore/v2.1/catalog/datasets/disponibilite-parkings/records?limit=100")
+        .then((d) => { const p = parseLille(d.results || []); results.push(...p); ok = true; console.log(`[API] Lille: ${p.length}`); })
+        .catch((e) => console.warn("[API] Lille:", e.message)),
     );
   }
   await Promise.allSettled(fs);
