@@ -17,6 +17,7 @@ interface Props {
 
 export default function TabBar({ active, onChange }: Props) {
   return (
+    <>
     <nav className="fixed inset-x-0 bottom-0 z-[2000] bg-white dark:bg-[#0e0e12] border-t border-black/8 dark:border-white/8">
       <div className="flex">
       {tabs.map((t) => {
@@ -37,5 +38,8 @@ export default function TabBar({ active, onChange }: Props) {
       })}
       </div>
     </nav>
+    {/* Background fill below tab bar — covers iOS safe area gap */}
+    <div className="fixed inset-x-0 z-[1999] bg-white dark:bg-[#0e0e12]" style={{ bottom: -100, height: 150 }} />
+    </>
   );
 }
