@@ -26,7 +26,7 @@ export default function Map({ parkings, onSelect, userPos, dark, center, zoom, s
   const tileRef = useRef<L.TileLayer | null>(null);
   const pinRef = useRef<L.Marker | null>(null);
   const lastCenter = useRef("");
-  const updateTimer = useRef<NodeJS.Timeout>();
+  const updateTimer = useRef<NodeJS.Timeout | null>(null);
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
 
