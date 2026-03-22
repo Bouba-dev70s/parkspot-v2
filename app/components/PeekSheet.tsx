@@ -25,8 +25,8 @@ export default function PeekSheet({ parkings, onSelect, freeCount, paidCount, ti
         <span className="font-mono text-xs text-gray-400">{parkings.length}</span>
       </div>
       <div className="flex gap-2 px-5 pb-3.5">
-        <div className="flex-1 p-2.5 bg-gray-100 dark:bg-gray-800/50 rounded-xl text-center"><div className="font-mono text-xl font-bold" style={{ color: "var(--free)" }}>{parkings.filter(p => p.type === "free").length}</div><div className="text-[10px] text-gray-400 uppercase tracking-wide mt-0.5">Gratuits</div></div>
-        <div className="flex-1 p-2.5 bg-gray-100 dark:bg-gray-800/50 rounded-xl text-center"><div className="font-mono text-xl font-bold" style={{ color: "var(--paid)" }}>{parkings.filter(p => p.type === "paid").length}</div><div className="text-[10px] text-gray-400 uppercase tracking-wide mt-0.5">Payants</div></div>
+        <div className="flex-1 p-2.5 bg-gray-100 dark:bg-gray-800/50 rounded-xl text-center"><div className="font-mono text-xl font-bold text-gray-900 dark:text-white">{parkings.length}</div><div className="text-[10px] text-gray-400 uppercase tracking-wide mt-0.5">Parkings</div></div>
+        <div className="flex-1 p-2.5 bg-gray-100 dark:bg-gray-800/50 rounded-xl text-center"><div className="font-mono text-xl font-bold" style={{ color: "var(--paid)" }}>{parkings.reduce((s, p) => s + p.total, 0).toLocaleString("fr-FR")}</div><div className="text-[10px] text-gray-400 uppercase tracking-wide mt-0.5">Places</div></div>
         <div className="flex-1 p-2.5 bg-gray-100 dark:bg-gray-800/50 rounded-xl text-center"><div className="font-mono text-xl font-bold" style={{ color: "var(--accent)" }}>{parkings.filter(p => p.realtime).length}</div><div className="text-[10px] text-gray-400 uppercase tracking-wide mt-0.5">Temps réel</div></div>
       </div>
       <div className="flex-1 overflow-y-auto px-4 pb-4" style={{ WebkitOverflowScrolling: "touch" }}>
