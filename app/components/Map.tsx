@@ -71,7 +71,8 @@ export default function Map({ parkings, onSelect, userPos, dark, center, zoom, s
   const prevSelectedId = useRef<number | null>(null);
   const lastParkingsRef = useRef<string>("");
 
-  const TILES = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
+  const TILES_LIGHT = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
+  const TILES_DARK = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
 
   // === INIT MAP — once ===
   useEffect(() => {
@@ -82,19 +83,22 @@ export default function Map({ parkings, onSelect, userPos, dark, center, zoom, s
       center: c, zoom: z, zoomControl: false, attributionControl: false,
       minZoom: 5, maxZoom: 18, zoomSnap: 0.5,
       preferCanvas: true,
-      fadeAnimation: false,
+      fadeAnimation: true, // Smooth tile fade-in
       markerZoomAnimation: false,
       zoomAnimation: true,
       inertia: true,
-      inertiaDeceleration: 3000,
+      inertiaDeceleration: 3400,
+      inertiaMaxSpeed: 3000,
     });
-    L.tileLayer(TILES, {
-      maxZoom: 18, keepBuffer: 3,
-      updateWhenZooming: false, updateWhenIdle: true,
-      detectRetina: true,
-    }).addTo(map);
-    const tp = map.getPane("tilePane");
-    if (tp && dark) tp.style.filter = "invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9) saturate(0.6)";
+    const tile = L.tileLayer(dark ? TILES_DARK : TILES_LIGHT, {
+      maxZoom: 19,
+      keepBuffer: 25, // Keep MANY tiles in memory — kills grey areas
+      updateWhenZooming: true, // Load tiles WHILE zooming, not after
+      updateWhenIdle: false, // Don't wait for user to stop
+    });
+    tile.addTo(map);
+    tileRef.current = tile;
+    // NO CSS filter — we use native dark tiles instead (10x faster)
     const cluster = L.markerClusterGroup({
       maxClusterRadius: 60,
       showCoverageOnHover: false,
@@ -111,17 +115,17 @@ export default function Map({ parkings, onSelect, userPos, dark, center, zoom, s
     map.addLayer(cluster);
     mapRef.current = map;
     clusterRef.current = cluster;
-    map.getContainer().style.background = dark ? "#1a1a2a" : "#f2efe9";
+    map.getContainer().style.background = dark ? "#1a1a2e" : "#f2efe9";
     if (center) lastCenter.current = `${c[0].toFixed(4)},${c[1].toFixed(4)}`;
     return () => { map.remove(); mapRef.current = null; };
   }, []);
 
-  // === DARK MODE ===
+  // === DARK MODE — swap tiles, no CSS filter ===
   useEffect(() => {
-    if (!mapRef.current) return;
-    const tp = mapRef.current.getPane("tilePane");
-    if (tp) { tp.style.filter = dark ? "invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9) saturate(0.6)" : "none"; tp.style.transition = "filter 0.4s"; }
-    mapRef.current.getContainer().style.background = dark ? "#1a1a2a" : "#f2efe9";
+    if (!mapRef.current || !tileRef.current) return;
+    const url = dark ? TILES_DARK : TILES_LIGHT;
+    tileRef.current.setUrl(url);
+    mapRef.current.getContainer().style.background = dark ? "#1a1a2e" : "#f2efe9";
   }, [dark]);
 
   // === FLY TO ===
@@ -130,7 +134,7 @@ export default function Map({ parkings, onSelect, userPos, dark, center, zoom, s
     const key = `${center[0].toFixed(4)},${center[1].toFixed(4)}`;
     if (key === lastCenter.current) return;
     lastCenter.current = key;
-    mapRef.current.flyTo(center, zoom || 13, { duration: 0.6 });
+    mapRef.current.flyTo(center, zoom || 13, { duration: 0.4 });
   }, [center, zoom]);
 
   // === ADDRESS PIN ===
