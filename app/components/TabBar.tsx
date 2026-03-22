@@ -1,11 +1,10 @@
 "use client";
-import { HiOutlineMap, HiOutlineSearch, HiOutlineBookmark, HiOutlineBell, HiOutlineUser } from "react-icons/hi";
+import { HiOutlineMap, HiOutlineSearch, HiOutlineBookmark, HiOutlineUser } from "react-icons/hi";
 
 const tabs = [
   { id: "map", label: "Carte", icon: HiOutlineMap },
   { id: "list", label: "Explorer", icon: HiOutlineSearch },
   { id: "fav", label: "Favoris", icon: HiOutlineBookmark },
-  { id: "alerts", label: "Alertes", icon: HiOutlineBell },
   { id: "profile", label: "Profil", icon: HiOutlineUser },
 ] as const;
 

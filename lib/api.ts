@@ -88,6 +88,39 @@ export async function searchCity(query: string): Promise<CityInfo[]> {
   } catch { return []; }
 }
 
+// === SMART AVAILABILITY ESTIMATE ===
+// Based on time of day + day of week — like Google Maps "Popular times"
+function estimateAvail(total: number): number {
+  const now = new Date();
+  const hour = now.getHours();
+  const isWeekend = now.getDay() === 0 || now.getDay() === 6;
+
+  // Occupancy rate by hour (0 = empty, 1 = full)
+  let occupancy: number;
+  if (isWeekend) {
+    // Weekends: peak 10h-18h
+    if (hour >= 10 && hour <= 13) occupancy = 0.7;
+    else if (hour >= 14 && hour <= 18) occupancy = 0.8;
+    else if (hour >= 19 && hour <= 21) occupancy = 0.5;
+    else occupancy = 0.2;
+  } else {
+    // Weekdays: morning rush, lunch, evening rush
+    if (hour >= 7 && hour <= 9) occupancy = 0.85;
+    else if (hour >= 10 && hour <= 12) occupancy = 0.7;
+    else if (hour >= 12 && hour <= 14) occupancy = 0.9;
+    else if (hour >= 14 && hour <= 17) occupancy = 0.75;
+    else if (hour >= 17 && hour <= 19) occupancy = 0.85;
+    else if (hour >= 20 && hour <= 22) occupancy = 0.4;
+    else occupancy = 0.15;
+  }
+
+  // Add some variance per parking (deterministic based on total so it doesn't change on refresh)
+  const variance = ((total * 7) % 20) / 100 - 0.1; // -0.1 to +0.1
+  occupancy = Math.max(0.05, Math.min(0.95, occupancy + variance));
+
+  return Math.max(1, Math.round(total * (1 - occupancy)));
+}
+
 // === PARSERS WITH REAL SERVICES ===
 
 function parseBnls(records: any[], cityName?: string): Parking[] {
@@ -128,10 +161,11 @@ function parseBnls(records: any[], cityName?: string): Parking[] {
 
     const city = f.com_name || f.com_nom || cityName || "";
 
+    const cap = total || 100;
     results.push({
       id: nextId++, name: name.substring(0, 40), addr: addr.substring(0, 60), lat, lng,
-      type: isFree ? "free" : "paid", total: total || 100,
-      avail: Math.floor((total || 100) * (0.15 + Math.random() * 0.5)),
+      type: isFree ? "free" : "paid", total: cap,
+      avail: estimateAvail(cap), // Smart estimate based on time of day
       price: isFree ? null : `${hp.toFixed(2)}€/h`, pricePerHour: hp,
       hours: "24/7", source: "bnls", city,
       services: svc, realtime: false, lastUpdate: nowISO(),
@@ -195,7 +229,7 @@ function parseParisGarages(records: any[]): Parking[] {
     results.push({
       id: nextId++, name: (f.nom_du_parc_de_stationnement || f.nom || "Parking").substring(0, 40),
       addr: (f.adresse || "").substring(0, 60), lat, lng, type: "paid", total: total || 200,
-      avail: Math.floor(Math.random() * (total || 200) * 0.6),
+      avail: estimateAvail(total || 200), // Smart estimate
       price: `${hp.toFixed(2)}€/h`, pricePerHour: hp,
       hours: (f.horaires_ouverture_du_parc || "24/7").substring(0, 30), source: "paris", city: "Paris",
       services: svc, realtime: false, lastUpdate: nowISO(),
