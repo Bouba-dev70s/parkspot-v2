@@ -22,10 +22,7 @@ export default function PeekSheet({ parkings, onSelect, freeCount, paidCount, ti
       <div className="flex justify-center py-2.5 cursor-pointer" onClick={toggle}><div className="w-9 h-1 bg-black/15 dark:bg-white/15 rounded-full" /></div>
       <div className="flex items-center justify-between px-5 pb-3" onClick={toggle}>
         <span className="text-lg font-bold tracking-tight text-gray-900 dark:text-white">À proximité</span>
-        <div className="flex items-center gap-2">
-          {tsText && <span className="text-[10px] text-gray-400">Maj {tsText}</span>}
-          <span className="font-mono text-xs text-gray-400">{parkings.length} spots</span>
-        </div>
+        <span className="font-mono text-xs text-gray-400">{parkings.length}</span>
       </div>
       <div className="flex gap-2 px-5 pb-3.5">
         <div className="flex-1 p-2.5 bg-gray-100 dark:bg-gray-800/50 rounded-xl text-center"><div className="font-mono text-xl font-bold" style={{ color: "var(--free)" }}>{parkings.filter(p => p.type === "free").length}</div><div className="text-[10px] text-gray-400 uppercase tracking-wide mt-0.5">Gratuits</div></div>
