@@ -366,9 +366,9 @@ function parseLille(records: any[]): Parking[] {
 
 // === SUPPORTED CITIES ===
 export function isCitySupported(lat: number, lng: number): { supported: boolean; zone: string } {
-  if (lat > 48.5 && lat < 49.1 && lng > 1.8 && lng < 3.2) return { supported: true, zone: "idf" };
+  // IDF — wide bounds covering all departments 75, 77, 78, 91, 92, 93, 94, 95
+  if (lat > 48.1 && lat < 49.3 && lng > 1.4 && lng < 3.6) return { supported: true, zone: "idf" };
   if (lat > 45.6 && lat < 45.9 && lng > 4.6 && lng < 5.1) return { supported: true, zone: "lyon" };
-  if (lat > 43.15 && lat < 43.45 && lng > 5.1 && lng < 5.7) return { supported: true, zone: "marseille" };
   if (lat > 44.7 && lat < 45.0 && lng > -0.8 && lng < -0.3) return { supported: true, zone: "bordeaux" };
   if (lat > 50.5 && lat < 50.8 && lng > 2.8 && lng < 3.3) return { supported: true, zone: "lille" };
   return { supported: false, zone: "none" };
@@ -413,12 +413,9 @@ export async function loadParkingsForCity(city: CityInfo): Promise<{ data: Parki
 
   // === PARIS / IDF ===
   if (zone === "idf") {
-    // Also get BNLS from Paris center for IDF suburbs
-    const isSuburb = Math.abs(city.lat - 48.8566) > 0.05 || Math.abs(city.lng - 2.3522) > 0.05;
-    if (isSuburb) {
-      fs.push(fetchT(`${base}&where=within_distance(coordonneesxy,geom'POINT(2.3522 48.8566)',25km)`)
-        .then((d) => { const recs = d.results || []; if (recs.length > 0) { const p = parseBnls(recs, "Paris"); const newOnes = p.filter(np => !results.some(r => Math.abs(r.lat - np.lat) < 0.001 && Math.abs(r.lng - np.lng) < 0.001)); results.push(...newOnes); ok = true; } }).catch(() => {}));
-    }
+    // Always get BNLS centered on Paris (covers most of IDF)
+    fs.push(fetchT(`${base}&where=within_distance(coordonneesxy,geom'POINT(2.3522 48.8566)',40km)`)
+      .then((d) => { const recs = d.results || []; if (recs.length > 0) { const p = parseBnls(recs, "Paris"); const newOnes = p.filter(np => !results.some(r => Math.abs(r.lat - np.lat) < 0.001 && Math.abs(r.lng - np.lng) < 0.001)); results.push(...newOnes); ok = true; console.log(`[API] BNLS Paris center: ${newOnes.length}`); } }).catch(() => {}));
     fs.push(
       fetchT("https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/stationnement-en-ouvrage/records?limit=100").then((d) => { const p = parseParisGarages(d.results || []); results.push(...p); ok = true; console.log(`[API] Paris garages: ${p.length}`); }).catch(() => {}),
       fetchT("https://opendata.saemes.fr/api/explore/v2.1/catalog/datasets/places-disponibles-parkings-saemes/records?limit=100").then((d) => { const p = parseSaemes(d.results || []); results.push(...p); ok = true; console.log(`[API] Saemes: ${p.length}`); }).catch(() => {}),
@@ -442,15 +439,6 @@ export async function loadParkingsForCity(city: CityInfo): Promise<{ data: Parki
       fetchT("https://opendata.bordeaux-metropole.fr/api/explore/v2.1/catalog/datasets/st_park_p/records?limit=100")
         .then((d) => { const p = parseBordeaux(d.results || []); results.push(...p); ok = true; console.log(`[API] Bordeaux: ${p.length}`); })
         .catch((e) => console.warn("[API] Bordeaux:", e.message)),
-    );
-  }
-
-  // === MARSEILLE ===
-  if (zone === "marseille") {
-    fs.push(
-      fetchT("https://data.ampmetropole.fr/api/explore/v2.1/catalog/datasets/disponibilites-des-places-de-parkings/records?limit=100")
-        .then((d) => { const p = parseMarseille(d.results || []); results.push(...p); ok = true; console.log(`[API] Marseille: ${p.length}`); })
-        .catch((e) => console.warn("[API] Marseille:", e.message)),
     );
   }
 
