@@ -38,13 +38,38 @@ export default function Map({ parkings, onSelect, userPos, dark, center, zoom, s
     const z = center ? (zoom || 13) : 6;
     const map = L.map(containerRef.current, {
       center: c, zoom: z, zoomControl: false, attributionControl: false,
-      minZoom: 5, maxZoom: 18, zoomSnap: 0.5, wheelPxPerZoomLevel: 120, preferCanvas: true,
+      minZoom: 5, maxZoom: 18, zoomSnap: 0.5,
+      preferCanvas: true,
+      // Mobile performance
+
+      fadeAnimation: false,
+      markerZoomAnimation: false,
+      zoomAnimation: true,
+      inertia: true,
+      inertiaDeceleration: 3000,
+      wheelPxPerZoomLevel: 100,
     });
-    const tile = L.tileLayer(TILES, { maxZoom: 18, keepBuffer: 8, updateWhenZooming: false, updateWhenIdle: true }).addTo(map);
+    const tile = L.tileLayer(TILES, {
+      maxZoom: 18, keepBuffer: 4,
+      updateWhenZooming: false, updateWhenIdle: true,
+      tileSize: 256, detectRetina: true,
+    }).addTo(map);
     tileRef.current = tile;
     const tp = map.getPane("tilePane");
     if (tp && dark) { tp.style.filter = "invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9) saturate(0.6)"; }
-    const cluster = L.markerClusterGroup({ maxClusterRadius: 45, showCoverageOnHover: false, zoomToBoundsOnClick: true, disableClusteringAtZoom: 16, chunkedLoading: true, chunkInterval: 100, chunkDelay: 10, animate: false, spiderfyOnMaxZoom: false, removeOutsideVisibleBounds: true });
+    const cluster = L.markerClusterGroup({
+      maxClusterRadius: 55, // Larger clusters = fewer markers = faster
+      showCoverageOnHover: false,
+      zoomToBoundsOnClick: true,
+      disableClusteringAtZoom: 16,
+      chunkedLoading: true,
+      chunkInterval: 150,
+      chunkDelay: 20,
+      animate: false,
+      spiderfyOnMaxZoom: false,
+      removeOutsideVisibleBounds: true,
+      animateAddingMarkers: false,
+    });
     map.addLayer(cluster);
     mapRef.current = map; clusterRef.current = cluster;
     map.getContainer().style.background = dark ? "#1a1a2a" : "#f2efe9";
