@@ -34,37 +34,37 @@ function maneuverToFrench(type: string, modifier: string, name: string): { text:
   const m = modifier || "";
   
   switch (type) {
-    case "depart": return { text: `Démarrer${road}`, icon: "🏁" };
-    case "arrive": return { text: "Vous êtes arrivé", icon: "📍" };
+    case "depart": return { text: `Démarrer${road}`, icon: "depart" };
+    case "arrive": return { text: "Vous êtes arrivé", icon: "arrive" };
     case "turn":
-      if (m.includes("left")) return { text: `Tourner à gauche${road}`, icon: "⬅️" };
-      if (m.includes("right")) return { text: `Tourner à droite${road}`, icon: "➡️" };
-      if (m.includes("sharp left")) return { text: `Tourner fortement à gauche${road}`, icon: "↙️" };
-      if (m.includes("sharp right")) return { text: `Tourner fortement à droite${road}`, icon: "↗️" };
-      if (m.includes("slight left")) return { text: `Légèrement à gauche${road}`, icon: "↖️" };
-      if (m.includes("slight right")) return { text: `Légèrement à droite${road}`, icon: "↗️" };
-      return { text: `Tourner${road}`, icon: "↪️" };
-    case "new name": return { text: `Continuer${road}`, icon: "⬆️" };
-    case "merge": return { text: `Rejoindre${road}`, icon: "🔀" };
-    case "on ramp": return { text: `Prendre la bretelle${road}`, icon: "🛣️" };
-    case "off ramp": return { text: `Sortir${road}`, icon: "↗️" };
+      if (m.includes("sharp left")) return { text: `Tourner fortement à gauche${road}`, icon: "sharp-left" };
+      if (m.includes("sharp right")) return { text: `Tourner fortement à droite${road}`, icon: "sharp-right" };
+      if (m.includes("slight left")) return { text: `Légèrement à gauche${road}`, icon: "slight-left" };
+      if (m.includes("slight right")) return { text: `Légèrement à droite${road}`, icon: "slight-right" };
+      if (m.includes("left")) return { text: `Tourner à gauche${road}`, icon: "left" };
+      if (m.includes("right")) return { text: `Tourner à droite${road}`, icon: "right" };
+      return { text: `Tourner${road}`, icon: "straight" };
+    case "new name": return { text: `Continuer${road}`, icon: "straight" };
+    case "merge": return { text: `Rejoindre${road}`, icon: "merge" };
+    case "on ramp": return { text: `Prendre la bretelle${road}`, icon: "slight-right" };
+    case "off ramp": return { text: `Sortir${road}`, icon: "slight-right" };
     case "fork":
-      if (m.includes("left")) return { text: `Rester à gauche${road}`, icon: "↙️" };
-      if (m.includes("right")) return { text: `Rester à droite${road}`, icon: "↗️" };
-      return { text: `Continuer${road}`, icon: "🔀" };
+      if (m.includes("left")) return { text: `Rester à gauche${road}`, icon: "slight-left" };
+      if (m.includes("right")) return { text: `Rester à droite${road}`, icon: "slight-right" };
+      return { text: `Continuer${road}`, icon: "straight" };
     case "end of road":
-      if (m.includes("left")) return { text: `En bout de route, à gauche${road}`, icon: "⬅️" };
-      if (m.includes("right")) return { text: `En bout de route, à droite${road}`, icon: "➡️" };
-      return { text: `En bout de route${road}`, icon: "🔚" };
-    case "continue": return { text: `Continuer tout droit${road}`, icon: "⬆️" };
+      if (m.includes("left")) return { text: `En bout de route, à gauche${road}`, icon: "left" };
+      if (m.includes("right")) return { text: `En bout de route, à droite${road}`, icon: "right" };
+      return { text: `En bout de route${road}`, icon: "straight" };
+    case "continue": return { text: `Continuer tout droit${road}`, icon: "straight" };
     case "roundabout":
     case "rotary":
-      return { text: `Au rond-point${road}`, icon: "🔄" };
+      return { text: `Au rond-point${road}`, icon: "roundabout" };
     case "roundabout turn":
-      if (m.includes("left")) return { text: `Au rond-point, à gauche${road}`, icon: "↩️" };
-      return { text: `Au rond-point, à droite${road}`, icon: "↪️" };
-    case "notification": return { text: name || "Continuer", icon: "ℹ️" };
-    default: return { text: `Continuer${road}`, icon: "⬆️" };
+      if (m.includes("left")) return { text: `Au rond-point, à gauche${road}`, icon: "roundabout" };
+      return { text: `Au rond-point, à droite${road}`, icon: "roundabout" };
+    case "notification": return { text: name || "Continuer", icon: "straight" };
+    default: return { text: `Continuer${road}`, icon: "straight" };
   }
 }
 
@@ -211,14 +211,21 @@ export function speak(text: string, force = false) {
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = "fr-FR";
-  utterance.rate = 1.05;
-  utterance.pitch = 1;
+  utterance.rate = 1.0;
+  utterance.pitch = 1.0;
   utterance.volume = 1;
   
-  // Try to use a French voice
+  // Pick the best French voice — prefer premium/enhanced voices
   const voices = window.speechSynthesis.getVoices();
-  const fr = voices.find(v => v.lang.startsWith("fr")) || voices[0];
-  if (fr) utterance.voice = fr;
+  const frVoices = voices.filter(v => v.lang.startsWith("fr"));
+  // Priority: Thomas (male premium), Amelie, Audrey, any premium, any French
+  const premium = frVoices.find(v => v.name.includes("Thomas")) 
+    || frVoices.find(v => v.name.includes("Amelie"))
+    || frVoices.find(v => v.name.includes("Audrey"))
+    || frVoices.find(v => v.name.includes("Enhanced") || v.name.includes("Premium") || v.name.includes("Siri"))
+    || frVoices.find(v => !v.localService) // cloud voices are usually better
+    || frVoices[0];
+  if (premium) utterance.voice = premium;
   
   window.speechSynthesis.speak(utterance);
   lastSpoken = text;

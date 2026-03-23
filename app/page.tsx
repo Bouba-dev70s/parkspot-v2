@@ -294,9 +294,9 @@ export default function Home() {
           {/* Voirie status badge */}
           {!navigating && showVoirie && voirieStatus && voirieStatus.zone > 0 && (
             <div className="fixed bottom-[380px] right-3 z-[1000] bg-white dark:bg-[#1c1c24] border border-black/8 dark:border-white/8 rounded-xl shadow-lg px-3 py-2 max-w-[160px]">
-              <div className={`text-[11px] font-bold ${voirieStatus.isFree ? "text-[var(--free)]" : "text-[var(--paid)]"}`}>{voirieStatus.isFree ? "🅿️ Voirie gratuite" : `🅿️ Voirie ${voirieStatus.pricePerHour}€/h`}</div>
+              <div className={`text-[11px] font-bold ${voirieStatus.isFree ? "text-[var(--free)]" : "text-[var(--paid)]"}`}>{voirieStatus.isFree ? "Voirie gratuite" : `Voirie ${voirieStatus.pricePerHour}€/h`}</div>
               <div className="text-[9px] text-gray-400 mt-0.5">{voirieStatus.reason}</div>
-              {voirieStatus.nextChange && <div className="text-[9px] text-gray-400">⏱ {voirieStatus.nextChange}</div>}
+              {voirieStatus.nextChange && <div className="text-[9px] text-gray-400">{voirieStatus.nextChange}</div>}
             </div>
           )}
           {!selected && !navigating && <PeekSheet parkings={filtered} onSelect={onSelect} freeCount={freeCount} paidCount={paidCount} timestamp={dataTimestamp} />}
@@ -308,7 +308,7 @@ export default function Home() {
               destination={navDest}
               onClose={stopNavigation}
               onUpdateRoute={(r) => setNavRoute(r)}
-              onCenterUser={() => { if (userPos) { setMapCenter([...userPos]); setMapZoom(17); } }}
+              onCenterUser={() => { if (userPos) { setMapCenter([userPos[0] + 0.00001, userPos[1]]); setMapZoom(17); setTimeout(() => setMapCenter([...userPos]), 100); } }}
               mode={navMode}
             />
           )}

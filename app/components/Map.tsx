@@ -84,6 +84,7 @@ export default function Map({ parkings, onSelect, userPos, dark, center, zoom, s
   // Route layer
   const routeLayerRef = useRef<L.LayerGroup | null>(null);
   const destMarkerRef = useRef<L.Marker | null>(null);
+  const userInteracted = useRef(false);
 
   const TILES_LIGHT = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
   const TILES_DARK = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
@@ -130,6 +131,7 @@ export default function Map({ parkings, onSelect, userPos, dark, center, zoom, s
     const key = `${center[0].toFixed(4)},${center[1].toFixed(4)}`;
     if (key === lastCenter.current) return;
     lastCenter.current = key;
+    userInteracted.current = false; // Reset follow mode when center is set externally
     mapRef.current.flyTo(center, zoom || 13, { duration: 0.4 });
   }, [center, zoom]);
 
@@ -309,10 +311,19 @@ export default function Map({ parkings, onSelect, userPos, dark, center, zoom, s
     }
   }, [route, dark]);
 
-  // === AUTO-CENTER during navigation ===
+  // === AUTO-CENTER during navigation — only if user hasn't manually moved ===
   useEffect(() => {
-    if (!mapRef.current || !navigating || !userPos) return;
-    mapRef.current.setView(userPos, 17, { animate: true, duration: 0.5 });
+    if (!mapRef.current || !navigating) { userInteracted.current = false; return; }
+    const map = mapRef.current;
+    const onMove = () => { userInteracted.current = true; };
+    map.on("dragstart", onMove);
+    map.on("zoomstart", onMove);
+    return () => { map.off("dragstart", onMove); map.off("zoomstart", onMove); };
+  }, [navigating]);
+
+  useEffect(() => {
+    if (!mapRef.current || !navigating || !userPos || userInteracted.current) return;
+    mapRef.current.panTo(userPos, { animate: true, duration: 0.5 });
   }, [userPos, navigating]);
 
   return <div ref={containerRef} className="w-full h-full" style={{ background: dark ? "#1a1a2a" : "#f2efe9" }} />;

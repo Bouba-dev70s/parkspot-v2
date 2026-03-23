@@ -147,7 +147,9 @@ export default function DetailSheet({ parking, onClose, isFav, onToggleFav, user
           return (
             <div className="rounded-2xl border border-black/5 dark:border-white/5 p-4 mb-5 overflow-hidden relative">
               <div className="flex items-center gap-2 mb-3">
-                <div className="w-6 h-6 rounded-full bg-yellow-100 dark:bg-yellow-900/20 flex items-center justify-center text-[11px]">🅿️</div>
+                <div className="w-6 h-6 rounded-full bg-yellow-100 dark:bg-yellow-900/20 flex items-center justify-center">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2.5"><path d="M3 7h18M3 12h18M3 17h18"/></svg>
+                </div>
                 <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Voirie vs Parking</span>
               </div>
               <div className="grid grid-cols-2 gap-2 mb-3">
@@ -172,13 +174,13 @@ export default function DetailSheet({ parking, onClose, isFav, onToggleFav, user
                   comp.cheaperOption === "voirie" ? "bg-yellow-50 dark:bg-yellow-900/10 text-yellow-600" :
                   "bg-gray-50 dark:bg-gray-800/40 text-gray-500"
                 }`}>
-                  {comp.cheaperOption === "parking" && `💰 ${comp.savings.toFixed(0)}€ moins cher ici`}
-                  {comp.cheaperOption === "voirie" && `⚠️ Voirie ${comp.savings.toFixed(0)}€ moins chère (max ${vs.maxDuration}h)`}
+                  {comp.cheaperOption === "parking" && `${comp.savings.toFixed(0)}€ moins cher en parking`}
+                  {comp.cheaperOption === "voirie" && `Voirie ${comp.savings.toFixed(0)}€ moins chère (max ${vs.maxDuration}h)`}
                   {comp.cheaperOption === "equal" && "Prix similaire · Parking plus sûr"}
                 </div>
               )}
               {vs.nextChange && (
-                <div className="text-[10px] text-gray-400 text-center mt-2">⏱ {vs.nextChange}</div>
+                <div className="text-[10px] text-gray-400 text-center mt-2">{vs.nextChange}</div>
               )}
             </div>
           );
@@ -186,8 +188,8 @@ export default function DetailSheet({ parking, onClose, isFav, onToggleFav, user
 
         {/* Actions */}
         <div className="grid grid-cols-2 gap-2 mb-2">
-          <button onClick={() => onNavigate?.("driving")} className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-[var(--free)] text-black font-semibold text-[13px] active:scale-[0.97]">🚗 Y aller</button>
-          <button onClick={() => onNavigate?.("walking")} className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-[var(--accent)] text-white font-semibold text-[13px] active:scale-[0.97]">🚶 À pied</button>
+          <button onClick={() => onNavigate?.("driving")} className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-[var(--free)] text-black font-semibold text-[13px] active:scale-[0.97]"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 17h14M5 17a2 2 0 01-2-2V9a2 2 0 012-2h1l2-3h8l2 3h1a2 2 0 012 2v6a2 2 0 01-2 2M5 17v2m14-2v2"/><circle cx="7.5" cy="14" r="1.5"/><circle cx="16.5" cy="14" r="1.5"/></svg> Y aller</button>
+          <button onClick={() => onNavigate?.("walking")} className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-[var(--accent)] text-white font-semibold text-[13px] active:scale-[0.97]"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="5" r="2"/><path d="M10 22l2-7 3 3v6"/><path d="M14 13l-3-3-2 4"/><path d="M9 14l-3 6"/></svg> À pied</button>
         </div>
         <div className="grid grid-cols-2 gap-2 mb-2">
           <button onClick={onToggleFav} className={`flex items-center justify-center gap-2 py-3 rounded-2xl font-semibold text-[13px] active:scale-[0.97] ${isFav ? "bg-[var(--paid-bg)] text-[var(--paid)]" : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300"}`}>{isFav ? <HiBookmark size={16} /> : <HiOutlineBookmark size={16} />} {isFav ? "Sauvegardé" : "Sauvegarder"}</button>
