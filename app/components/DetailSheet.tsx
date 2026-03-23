@@ -1,13 +1,13 @@
 "use client";
 import { useRef, useCallback, useMemo, useState } from "react";
-import { HiOutlineBookmark, HiBookmark, HiOutlineArrowRight, HiX, HiOutlineShare, HiOutlineLocationMarker } from "react-icons/hi";
+import { HiOutlineBookmark, HiBookmark, HiX, HiOutlineShare, HiOutlineLocationMarker } from "react-icons/hi";
 import type { Parking } from "@/lib/api";
 import { estimatePrice, distanceKm } from "@/lib/api";
 import { getVoirieComparison } from "@/lib/voirie";
 
-interface Props { parking: Parking | null; onClose: () => void; isFav: boolean; onToggleFav: () => void; userPos: [number, number] | null; onParkHere?: () => void; }
+interface Props { parking: Parking | null; onClose: () => void; isFav: boolean; onToggleFav: () => void; userPos: [number, number] | null; onParkHere?: () => void; onNavigate?: (mode: "driving" | "walking") => void; }
 
-export default function DetailSheet({ parking, onClose, isFav, onToggleFav, userPos, onParkHere }: Props) {
+export default function DetailSheet({ parking, onClose, isFav, onToggleFav, userPos, onParkHere, onNavigate }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const sy = useRef(0); const cy = useRef(0); const dr = useRef(false);
   const [duration, setDuration] = useState(2);
@@ -186,11 +186,14 @@ export default function DetailSheet({ parking, onClose, isFav, onToggleFav, user
 
         {/* Actions */}
         <div className="grid grid-cols-2 gap-2 mb-2">
-          <button onClick={navigateTo} className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-[var(--free)] text-black font-semibold text-[13px] active:scale-[0.97]"><HiOutlineArrowRight size={16} /> Itinéraire</button>
-          <button onClick={onToggleFav} className={`flex items-center justify-center gap-2 py-3.5 rounded-2xl font-semibold text-[13px] active:scale-[0.97] ${isFav ? "bg-[var(--paid-bg)] text-[var(--paid)]" : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300"}`}>{isFav ? <HiBookmark size={16} /> : <HiOutlineBookmark size={16} />} {isFav ? "Sauvegardé" : "Sauvegarder"}</button>
+          <button onClick={() => onNavigate?.("driving")} className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-[var(--free)] text-black font-semibold text-[13px] active:scale-[0.97]">🚗 Y aller</button>
+          <button onClick={() => onNavigate?.("walking")} className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-[var(--accent)] text-white font-semibold text-[13px] active:scale-[0.97]">🚶 À pied</button>
         </div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2 mb-2">
+          <button onClick={onToggleFav} className={`flex items-center justify-center gap-2 py-3 rounded-2xl font-semibold text-[13px] active:scale-[0.97] ${isFav ? "bg-[var(--paid-bg)] text-[var(--paid)]" : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300"}`}>{isFav ? <HiBookmark size={16} /> : <HiOutlineBookmark size={16} />} {isFav ? "Sauvegardé" : "Sauvegarder"}</button>
           <button onClick={sharePark} className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium text-[13px] active:scale-[0.97]"><HiOutlineShare size={14} /> {shared ? "Copié !" : "Partager"}</button>
+        </div>
+        <div className="grid grid-cols-1 gap-2">
           <button onClick={onParkHere} className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-blue-50 dark:bg-blue-900/20 text-[var(--accent)] font-medium text-[13px] active:scale-[0.97]"><HiOutlineLocationMarker size={14} /> Garé ici</button>
         </div>
       </div>

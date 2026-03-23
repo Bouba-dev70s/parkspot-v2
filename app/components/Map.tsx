@@ -8,6 +8,7 @@ import "leaflet.markercluster";
 import type { Parking } from "@/lib/api";
 import type { StreetSpot, VoirieStatus } from "@/lib/voirie";
 import { PARIS_ZONE_1, PARIS_OUTER, spotTypeLabel } from "@/lib/voirie";
+import type { Route } from "@/lib/navigation";
 
 interface Props {
   parkings: Parking[];
@@ -21,6 +22,8 @@ interface Props {
   showVoirie?: boolean;
   streetSpots?: StreetSpot[];
   voirieStatus?: VoirieStatus | null;
+  route?: Route | null;
+  navigating?: boolean;
 }
 
 // === ICON CACHE — build once, reuse forever ===
@@ -61,7 +64,7 @@ function getIcon(p: Parking, selected: boolean): L.DivIcon {
   return icon;
 }
 
-export default function Map({ parkings, onSelect, userPos, dark, center, zoom, selectedId, addressPin, showVoirie, streetSpots, voirieStatus }: Props) {
+export default function Map({ parkings, onSelect, userPos, dark, center, zoom, selectedId, addressPin, showVoirie, streetSpots, voirieStatus, route, navigating }: Props) {
   const mapRef = useRef<L.Map | null>(null);
   const clusterRef = useRef<L.MarkerClusterGroup | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -78,6 +81,9 @@ export default function Map({ parkings, onSelect, userPos, dark, center, zoom, s
   // Voirie layers
   const voirieLayerRef = useRef<L.LayerGroup | null>(null);
   const streetSpotsLayerRef = useRef<L.LayerGroup | null>(null);
+  // Route layer
+  const routeLayerRef = useRef<L.LayerGroup | null>(null);
+  const destMarkerRef = useRef<L.Marker | null>(null);
 
   const TILES_LIGHT = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
   const TILES_DARK = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
@@ -259,6 +265,55 @@ export default function Map({ parkings, onSelect, userPos, dark, center, zoom, s
     group.addTo(mapRef.current);
     streetSpotsLayerRef.current = group;
   }, [showVoirie, streetSpots]);
+
+  // === ROUTE POLYLINE ===
+  useEffect(() => {
+    if (!mapRef.current) return;
+    if (routeLayerRef.current) { mapRef.current.removeLayer(routeLayerRef.current); routeLayerRef.current = null; }
+    if (destMarkerRef.current) { mapRef.current.removeLayer(destMarkerRef.current); destMarkerRef.current = null; }
+    if (!route || route.geometry.length < 2) return;
+
+    const group = L.layerGroup();
+
+    // Route outline (dark shadow)
+    const outline = L.polyline(route.geometry, {
+      color: dark ? "#1a1a2e" : "#fff", weight: 9, opacity: 0.7,
+      lineCap: "round", lineJoin: "round",
+    });
+    group.addLayer(outline);
+
+    // Route main line
+    const line = L.polyline(route.geometry, {
+      color: "#2563eb", weight: 5, opacity: 0.9,
+      lineCap: "round", lineJoin: "round",
+    });
+    group.addLayer(line);
+
+    // Destination marker (flag)
+    const destPoint = route.geometry[route.geometry.length - 1];
+    const destIcon = L.divIcon({
+      className: "",
+      html: `<div style="width:28px;height:28px;border-radius:50%;background:#dc2626;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/></svg></div>`,
+      iconSize: [28, 28], iconAnchor: [14, 14],
+    });
+    destMarkerRef.current = L.marker(destPoint, { icon: destIcon, zIndexOffset: 800 });
+    group.addLayer(destMarkerRef.current);
+
+    group.addTo(mapRef.current);
+    routeLayerRef.current = group;
+
+    // Fit bounds to show entire route
+    if (!navigating) {
+      const bounds = L.latLngBounds(route.geometry);
+      mapRef.current.fitBounds(bounds, { padding: [60, 60], maxZoom: 16 });
+    }
+  }, [route, dark]);
+
+  // === AUTO-CENTER during navigation ===
+  useEffect(() => {
+    if (!mapRef.current || !navigating || !userPos) return;
+    mapRef.current.setView(userPos, 17, { animate: true, duration: 0.5 });
+  }, [userPos, navigating]);
 
   return <div ref={containerRef} className="w-full h-full" style={{ background: dark ? "#1a1a2a" : "#f2efe9" }} />;
 }

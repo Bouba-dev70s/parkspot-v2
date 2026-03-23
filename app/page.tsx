@@ -4,8 +4,10 @@ import dynamic from "next/dynamic";
 import TabBar, { type TabId } from "./components/TabBar";
 import PeekSheet from "./components/PeekSheet";
 import DetailSheet from "./components/DetailSheet";
+import NavigationSheet from "./components/NavigationSheet";
 import { loadParkingsForCity, refreshSaemes, reverseGeocode, searchAddress, searchCity, sortByProximity, distanceKm, isCitySupported, type Parking, type CityInfo } from "@/lib/api";
 import { getStreetStatus, fetchStreetSpots, type StreetSpot, type VoirieStatus } from "@/lib/voirie";
+import { calculateRoute, type Route } from "@/lib/navigation";
 
 const Map = dynamic(() => import("./components/Map"), { ssr: false });
 type Step = "splash" | "detecting" | "confirm" | "ready";
@@ -46,6 +48,10 @@ export default function Home() {
   const [showVoirie, setShowVoirie] = useState(false);
   const [streetSpots, setStreetSpots] = useState<StreetSpot[]>([]);
   const [voirieStatus, setVoirieStatus] = useState<VoirieStatus | null>(null);
+  const [navRoute, setNavRoute] = useState<Route | null>(null);
+  const [navigating, setNavigating] = useState(false);
+  const [navDest, setNavDest] = useState<{ name: string; lat: number; lng: number } | null>(null);
+  const [navMode, setNavMode] = useState<"driving" | "walking">("driving");
   const addrTimer = useRef<NodeJS.Timeout | null>(null);
 
   // === INIT ===
@@ -155,6 +161,55 @@ export default function Home() {
     fetchStreetSpots(pos[0], pos[1], 800).then(setStreetSpots);
   }, [showVoirie, city, mapCenter]);
 
+  // === NAVIGATION ===
+  async function startNavigation(parking: Parking, mode: "driving" | "walking" = "driving") {
+    if (!userPos) {
+      // Get current position first
+      if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(async (pos) => {
+          const from: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+          setUserPos(from);
+          const route = await calculateRoute(from[0], from[1], parking.lat, parking.lng, mode);
+          if (route) {
+            setNavRoute(route);
+            setNavDest({ name: parking.name, lat: parking.lat, lng: parking.lng });
+            setNavMode(mode);
+            setNavigating(true);
+            setSelected(null);
+          }
+        }, () => {}, { enableHighAccuracy: true, timeout: 8000 });
+      }
+      return;
+    }
+    const route = await calculateRoute(userPos[0], userPos[1], parking.lat, parking.lng, mode);
+    if (route) {
+      setNavRoute(route);
+      setNavDest({ name: parking.name, lat: parking.lat, lng: parking.lng });
+      setNavMode(mode);
+      setNavigating(true);
+      setSelected(null);
+    }
+  }
+
+  function stopNavigation() {
+    setNavigating(false);
+    setNavRoute(null);
+    setNavDest(null);
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+  }
+
+  // === GPS WATCH during navigation ===
+  useEffect(() => {
+    if (!navigating) return;
+    if (!("geolocation" in navigator)) return;
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => setUserPos([pos.coords.latitude, pos.coords.longitude]),
+      () => {},
+      { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
+    );
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [navigating]);
+
   // === SPLASH ===
   if (step === "splash") return (<div className="splash bg-white dark:bg-[#0e0e12] text-gray-900 dark:text-white"><div className="splash-logo">P</div><div className="splash-text">ParkSpot</div><div className="splash-sub">Parking intelligent en France</div><div className="splash-spinner"><div className="splash-dots"><span /><span /><span /></div></div></div>);
 
@@ -217,9 +272,9 @@ export default function Home() {
       {/* MAP TAB */}
       {activeTab === "map" && (
         <div className="absolute inset-0">
-          {mapCenter ? <Map key={city?.name || "map"} parkings={filtered} onSelect={onSelect} userPos={userPos} dark={dark} center={mapCenter} zoom={mapZoom} selectedId={selected?.id} addressPin={addressPin} showVoirie={showVoirie} streetSpots={streetSpots} voirieStatus={voirieStatus} /> : <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-900"><div className="splash-dots text-gray-400"><span/><span/><span/></div></div>}
-          {loading && (<div className="absolute top-20 left-1/2 -translate-x-1/2 z-[1100] bg-white dark:bg-[#1c1c24] px-4 py-2 rounded-full shadow-lg border border-black/8 dark:border-white/8 flex items-center gap-2"><div className="splash-dots text-[var(--accent)]" style={{ transform: "scale(0.6)" }}><span/><span/><span/></div><span className="text-xs font-medium text-gray-500">Chargement...</span></div>)}
-          <div className="absolute left-4 right-4 z-[1000]" style={{ top: "59px" }}>
+          {mapCenter ? <Map key={city?.name || "map"} parkings={navigating ? [] : filtered} onSelect={onSelect} userPos={userPos} dark={dark} center={mapCenter} zoom={mapZoom} selectedId={selected?.id} addressPin={navigating ? null : addressPin} showVoirie={showVoirie && !navigating} streetSpots={streetSpots} voirieStatus={voirieStatus} route={navRoute} navigating={navigating} /> : <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-900"><div className="splash-dots text-gray-400"><span/><span/><span/></div></div>}
+          {loading && !navigating && (<div className="absolute top-20 left-1/2 -translate-x-1/2 z-[1100] bg-white dark:bg-[#1c1c24] px-4 py-2 rounded-full shadow-lg border border-black/8 dark:border-white/8 flex items-center gap-2"><div className="splash-dots text-[var(--accent)]" style={{ transform: "scale(0.6)" }}><span/><span/><span/></div><span className="text-xs font-medium text-gray-500">Chargement...</span></div>)}
+          {!navigating && <div className="absolute left-4 right-4 z-[1000]" style={{ top: "59px" }}>
             <button onClick={changeCity} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/90 dark:bg-[#1c1c24]/90 border border-black/8 dark:border-white/8 text-[var(--accent)] text-[11px] font-semibold active:opacity-70 mb-2 shadow-sm backdrop-blur-sm"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>{(city?.name || "Ville").substring(0, 20)} ▾</button>
             <div className="relative mb-2">
               <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
@@ -228,24 +283,35 @@ export default function Home() {
             </div>
             <div className="flex gap-1.5 overflow-x-auto no-scrollbar pr-4">{(["all","free","paid","available"] as const).filter((f) => { if (f === "free" && parkings.filter(p => p.type === "free").length === 0) return false; return true; }).map((f)=>(<button key={f} onClick={()=>setFilter(f)} className={`px-3.5 py-1.5 rounded-xl text-[12px] font-semibold whitespace-nowrap border ${filter===f?f==="free"?"bg-[var(--free)] border-[var(--free)] text-white":f==="paid"?"bg-[var(--paid)] border-[var(--paid)] text-white":"bg-[var(--accent)] border-[var(--accent)] text-white":"bg-white/90 dark:bg-[#1c1c24]/90 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 backdrop-blur-sm"}`}>{fLabels[f]}</button>))}<button onClick={()=>setShowFilters(true)} className={`px-3 py-1.5 rounded-xl text-[12px] font-semibold whitespace-nowrap border flex items-center gap-1 shrink-0 ${activeFilterCount>0?"bg-[var(--accent)] border-[var(--accent)] text-white":"bg-white/90 dark:bg-[#1c1c24]/90 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 backdrop-blur-sm"}`}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 21V14m0 0V3m0 11h6m14 7V10m0 0V3m0 7h-6M14 21V10m0 0V3m0 7h-6"/></svg>Filtres{activeFilterCount>0?` (${activeFilterCount})`:""}</button></div>
             {searchAnchor && (<div className="mt-2 flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-full w-fit"><span className="text-xs text-[var(--accent)]">Tri par proximité</span><button onClick={()=>{setSearchAnchor(null);setAddressPin(null)}} className="text-[var(--accent)] font-bold text-xs">✕</button></div>)}
-          </div>
-          <button onClick={locate} className="fixed bottom-[260px] right-4 z-[1000] w-12 h-12 rounded-full bg-white dark:bg-[#1c1c24] border border-black/8 dark:border-white/8 shadow-lg flex items-center justify-center text-[var(--accent)] active:scale-90"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/><circle cx="12" cy="12" r="8"/></svg></button>
+          </div>}
+          {!navigating && <button onClick={locate} className="fixed bottom-[260px] right-4 z-[1000] w-12 h-12 rounded-full bg-white dark:bg-[#1c1c24] border border-black/8 dark:border-white/8 shadow-lg flex items-center justify-center text-[var(--accent)] active:scale-90"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/><circle cx="12" cy="12" r="8"/></svg></button>}
           {/* Voirie toggle — only in Paris */}
-          {voirieStatus && voirieStatus.zone > 0 && (
+          {!navigating && voirieStatus && voirieStatus.zone > 0 && (
             <button onClick={() => setShowVoirie(!showVoirie)} className={`fixed bottom-[320px] right-4 z-[1000] w-12 h-12 rounded-full border shadow-lg flex items-center justify-center active:scale-90 ${showVoirie ? "bg-[var(--accent)] border-[var(--accent)] text-white" : "bg-white dark:bg-[#1c1c24] border-black/8 dark:border-white/8 text-gray-500 dark:text-gray-400"}`}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 7h18M3 12h18M3 17h18"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/><circle cx="15" cy="12" r="1.5" fill="currentColor"/><circle cx="11" cy="17" r="1.5" fill="currentColor"/></svg>
             </button>
           )}
           {/* Voirie status badge */}
-          {showVoirie && voirieStatus && voirieStatus.zone > 0 && (
+          {!navigating && showVoirie && voirieStatus && voirieStatus.zone > 0 && (
             <div className="fixed bottom-[380px] right-3 z-[1000] bg-white dark:bg-[#1c1c24] border border-black/8 dark:border-white/8 rounded-xl shadow-lg px-3 py-2 max-w-[160px]">
               <div className={`text-[11px] font-bold ${voirieStatus.isFree ? "text-[var(--free)]" : "text-[var(--paid)]"}`}>{voirieStatus.isFree ? "🅿️ Voirie gratuite" : `🅿️ Voirie ${voirieStatus.pricePerHour}€/h`}</div>
               <div className="text-[9px] text-gray-400 mt-0.5">{voirieStatus.reason}</div>
               {voirieStatus.nextChange && <div className="text-[9px] text-gray-400">⏱ {voirieStatus.nextChange}</div>}
             </div>
           )}
-          {!selected && <PeekSheet parkings={filtered} onSelect={onSelect} freeCount={freeCount} paidCount={paidCount} timestamp={dataTimestamp} />}
-          {selected && <DetailSheet parking={selected} onClose={()=>setSelected(null)} isFav={favorites.includes(selected.id)} onToggleFav={()=>toggleFav(selected.id)} userPos={userPos} onParkHere={parkHere} />}
+          {!selected && !navigating && <PeekSheet parkings={filtered} onSelect={onSelect} freeCount={freeCount} paidCount={paidCount} timestamp={dataTimestamp} />}
+          {selected && !navigating && <DetailSheet parking={selected} onClose={()=>setSelected(null)} isFav={favorites.includes(selected.id)} onToggleFav={()=>toggleFav(selected.id)} userPos={userPos} onParkHere={parkHere} onNavigate={(mode) => startNavigation(selected, mode)} />}
+          {navigating && navRoute && navDest && (
+            <NavigationSheet
+              route={navRoute}
+              userPos={userPos}
+              destination={navDest}
+              onClose={stopNavigation}
+              onUpdateRoute={(r) => setNavRoute(r)}
+              onCenterUser={() => { if (userPos) { setMapCenter([...userPos]); setMapZoom(17); } }}
+              mode={navMode}
+            />
+          )}
         </div>
       )}
 
@@ -343,7 +409,7 @@ export default function Home() {
         </div>
       )}
 
-      <TabBar active={activeTab} onChange={setActiveTab} />
+      {!navigating && <TabBar active={activeTab} onChange={setActiveTab} />}
     </div>
   );
 }
