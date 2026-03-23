@@ -1,5 +1,6 @@
 "use client";
 import { HiOutlineMap, HiOutlineSearch, HiOutlineBookmark, HiOutlineUser } from "react-icons/hi";
+import { tapLight } from "@/lib/haptics";
 
 const tabs = [
   { id: "map", label: "Carte", icon: HiOutlineMap },
@@ -26,7 +27,7 @@ export default function TabBar({ active, onChange }: Props) {
         return (
           <button
             key={t.id}
-            onTouchStart={(e) => { e.preventDefault(); onChange(t.id); }}
+            onTouchStart={(e) => { e.preventDefault(); tapLight(); onChange(t.id); }}
             onClick={() => onChange(t.id)}
             className={`flex-1 flex flex-col items-center justify-center gap-0.5 h-[50px]
               ${isActive ? "text-[var(--free)]" : "text-black/30 dark:text-white/30"}`}

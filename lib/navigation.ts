@@ -196,39 +196,68 @@ export function findCurrentStep(lat: number, lng: number, route: Route): { stepI
   return { stepIndex, distanceToNext: distToNext, distanceRemaining: distRemaining, durationRemaining: durRemaining };
 }
 
-// === VOICE GUIDANCE ===
+// === VOICE GUIDANCE — Native iOS + Web fallback ===
 let lastSpoken = "";
 let voiceEnabled = true;
+let ttsPlugin: any = null;
+let nativeAvailable: boolean | null = null; // null = not tested yet
+
+async function tryNativeTTS(text: string): Promise<boolean> {
+  // Only try loading plugin once
+  if (nativeAvailable === false) return false;
+  try {
+    if (!ttsPlugin) {
+      const mod = await import("@capacitor-community/text-to-speech");
+      ttsPlugin = mod.TextToSpeech;
+    }
+    await ttsPlugin.stop().catch(() => {});
+    await ttsPlugin.speak({
+      text,
+      lang: "fr-FR",
+      rate: 0.5,
+      pitch: 1.0,
+      volume: 1.0,
+      category: "playback",
+    });
+    nativeAvailable = true;
+    return true;
+  } catch {
+    nativeAvailable = false;
+    return false;
+  }
+}
+
+function webTTS(text: string) {
+  if (!("speechSynthesis" in window)) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "fr-FR";
+  u.rate = 1.0;
+  u.pitch = 1.0;
+  u.volume = 1;
+  const voices = window.speechSynthesis.getVoices();
+  const fr = voices.filter(v => v.lang.startsWith("fr"));
+  const best = fr.find(v => v.name.includes("Thomas"))
+    || fr.find(v => v.name.includes("Amelie"))
+    || fr.find(v => v.name.includes("Audrey"))
+    || fr.find(v => v.name.includes("Enhanced") || v.name.includes("Premium"))
+    || fr.find(v => !v.localService)
+    || fr[0];
+  if (best) u.voice = best;
+  window.speechSynthesis.speak(u);
+}
 
 export function setVoiceEnabled(enabled: boolean) { voiceEnabled = enabled; }
 export function isVoiceEnabled(): boolean { return voiceEnabled; }
 
-export function speak(text: string, force = false) {
+export async function speak(text: string, force = false) {
   if (!voiceEnabled && !force) return;
   if (text === lastSpoken && !force) return;
-  if (!("speechSynthesis" in window)) return;
-  
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "fr-FR";
-  utterance.rate = 1.0;
-  utterance.pitch = 1.0;
-  utterance.volume = 1;
-  
-  // Pick the best French voice — prefer premium/enhanced voices
-  const voices = window.speechSynthesis.getVoices();
-  const frVoices = voices.filter(v => v.lang.startsWith("fr"));
-  // Priority: Thomas (male premium), Amelie, Audrey, any premium, any French
-  const premium = frVoices.find(v => v.name.includes("Thomas")) 
-    || frVoices.find(v => v.name.includes("Amelie"))
-    || frVoices.find(v => v.name.includes("Audrey"))
-    || frVoices.find(v => v.name.includes("Enhanced") || v.name.includes("Premium") || v.name.includes("Siri"))
-    || frVoices.find(v => !v.localService) // cloud voices are usually better
-    || frVoices[0];
-  if (premium) utterance.voice = premium;
-  
-  window.speechSynthesis.speak(utterance);
   lastSpoken = text;
+
+  // Try native first, fallback to web
+  const ok = await tryNativeTTS(text);
+  if (!ok) webTTS(text);
 }
 
 // === SMART VOICE TRIGGERS ===

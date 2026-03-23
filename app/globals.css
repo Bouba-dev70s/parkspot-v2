@@ -29,18 +29,36 @@ body { font-family: var(--font-outfit), sans-serif; overflow: hidden; position: 
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { scrollbar-width: none; }
 
-/* === SPLASH SCREEN === */
+/* === SPLASH SCREEN — Apple-style scale + dissolve === */
 .splash { position: fixed; inset: 0; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-.splash-logo { width: 80px; height: 80px; border-radius: 20px; background: linear-gradient(135deg, #16a34a, #059669); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 40px; font-weight: 800; animation: splash-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); box-shadow: 0 8px 32px rgba(22, 163, 74, 0.35); }
-.splash-text { margin-top: 16px; font-size: 28px; font-weight: 800; letter-spacing: -0.5px; animation: splash-fade 0.6s 0.2s both; }
-.splash-sub { font-size: 14px; opacity: 0.4; margin-top: 4px; animation: splash-fade 0.6s 0.35s both; }
-.splash-spinner { margin-top: 32px; animation: splash-fade 0.6s 0.5s both; }
+.splash-logo {
+  width: 80px; height: 80px; border-radius: 22px;
+  background: linear-gradient(135deg, #16a34a, #059669);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 40px; font-weight: 800;
+  animation: splash-logo-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 12px 40px rgba(22, 163, 74, 0.4);
+}
+.splash-text { margin-top: 16px; font-size: 28px; font-weight: 800; letter-spacing: -0.5px; animation: splash-fade 0.5s 0.15s both; }
+.splash-sub { font-size: 14px; opacity: 0.4; margin-top: 4px; animation: splash-fade 0.5s 0.25s both; }
+.splash-spinner { margin-top: 32px; animation: splash-fade 0.5s 0.4s both; }
 .splash-dots { display: flex; gap: 6px; }
-.splash-dots span { width: 8px; height: 8px; border-radius: 50%; background: currentColor; opacity: 0.3; animation: dot-bounce 1.2s infinite; }
+.splash-dots span { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.3; animation: dot-bounce 1.2s infinite; }
 .splash-dots span:nth-child(2) { animation-delay: 0.15s; }
 .splash-dots span:nth-child(3) { animation-delay: 0.3s; }
-@keyframes splash-pop { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-@keyframes splash-fade { 0% { transform: translateY(8px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+
+/* Splash exit — logo scales up and fades out */
+.splash-exit { animation: splash-exit 0.5s ease-in forwards; }
+.splash-exit .splash-logo { animation: splash-logo-exit 0.5s ease-in forwards; }
+.splash-exit .splash-text,
+.splash-exit .splash-sub,
+.splash-exit .splash-spinner { animation: splash-fade-out 0.3s ease-in forwards; }
+
+@keyframes splash-logo-in { 0% { transform: scale(0) rotate(-10deg); opacity: 0; } 100% { transform: scale(1) rotate(0deg); opacity: 1; } }
+@keyframes splash-fade { 0% { transform: translateY(10px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+@keyframes splash-logo-exit { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(2.5); opacity: 0; } }
+@keyframes splash-fade-out { 0% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes splash-exit { 0% { opacity: 1; } 100% { opacity: 0; pointer-events: none; } }
 @keyframes dot-bounce { 0%, 80%, 100% { opacity: 0.3; transform: scale(1); } 40% { opacity: 1; transform: scale(1.3); } }
 
 /* === SKELETON LOADING === */
@@ -78,15 +96,27 @@ body { font-family: var(--font-outfit), sans-serif; overflow: hidden; position: 
 @keyframes pk-pulse { 0% { transform: scale(1); opacity: 0.4; } 100% { transform: scale(1.8); opacity: 0; } }
 .pk-dot { position: absolute; top: -3px; right: -3px; width: 8px; height: 8px; border-radius: 50%; background: #22d3ee; border: 1.5px solid #fff; box-shadow: 0 0 6px rgba(34,211,238,0.6); z-index: 2; }
 
-/* === SHEETS === */
+/* === SHEETS — Apple-style spring animations === */
 .sheet-enter { transform: translateY(100%); }
-.sheet-visible { transform: translateY(0); transition: transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1); }
+.sheet-visible { transform: translateY(0); transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1); }
 .sheet-dragging { transition: none !important; }
-.hour-bar { border-radius: 2px 2px 0 0; min-width: 4px; }
+
+/* Detail sheet slide up with subtle scale */
+.detail-enter {
+  animation: detail-in 0.4s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+@keyframes detail-in {
+  0% { transform: translateY(100%) scale(0.95); opacity: 0; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
 
 /* === CARD APPEAR ANIMATION === */
-.card-appear { animation: card-in 0.25s ease both; }
-@keyframes card-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.card-appear { animation: card-in 0.3s cubic-bezier(0.32, 0.72, 0, 1) both; }
+@keyframes card-in { from { opacity: 0; transform: translateY(12px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+/* Tab switch transition */
+.tab-enter { animation: tab-in 0.25s ease both; }
+@keyframes tab-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
 /* === SAFE AREAS === */
 @supports (padding: max(0px)) {

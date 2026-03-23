@@ -4,6 +4,7 @@ import { HiOutlineBookmark, HiBookmark, HiX, HiOutlineShare, HiOutlineLocationMa
 import type { Parking } from "@/lib/api";
 import { estimatePrice, distanceKm } from "@/lib/api";
 import { getVoirieComparison } from "@/lib/voirie";
+import { predictAvailability, predictionSummary, confidenceColor } from "@/lib/prediction";
 
 interface Props { parking: Parking | null; onClose: () => void; isFav: boolean; onToggleFav: () => void; userPos: [number, number] | null; onParkHere?: () => void; onNavigate?: (mode: "driving" | "walking") => void; }
 
@@ -21,7 +22,6 @@ export default function DetailSheet({ parking, onClose, isFav, onToggleFav, user
   const vc = pct > 0.3 ? "var(--free)" : pct > 0 ? "var(--paid)" : "var(--full)";
   const dist = useMemo(() => { if (!p || !userPos) return null; const d = distanceKm(userPos[0], userPos[1], p.lat, p.lng); return d < 1 ? `${Math.round(d * 1000)}m` : `${d.toFixed(1)}km`; }, [p, userPos]);
   const walkMin = useMemo(() => { if (!p || !userPos) return null; const d = distanceKm(userPos[0], userPos[1], p.lat, p.lng); return `${Math.round(d * 12)} min à pied`; }, [p, userPos]);
-  const hours = useMemo(() => Array.from({ length: 24 }, (_, i) => { const b = i >= 7 && i <= 9 ? 0.9 : i >= 17 && i <= 19 ? 0.85 : i >= 10 && i <= 16 ? 0.6 : i >= 20 && i <= 22 ? 0.4 : 0.15; return Math.min(1, b + Math.random() * 0.15); }), [p?.id]);
   const navigateTo = () => { if (!p) return; const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent); if (iOS) window.open(`maps://maps.apple.com/?daddr=${p.lat},${p.lng}&dirflg=d`); else window.open(`https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}&travelmode=driving`); };
 
   async function sharePark() {
@@ -32,7 +32,6 @@ export default function DetailSheet({ parking, onClose, isFav, onToggleFav, user
   }
 
   if (!p) return null;
-  const nowH = new Date().getHours();
   const est = estimatePrice(p, duration);
   const svc = p.services;
 
@@ -41,7 +40,7 @@ export default function DetailSheet({ parking, onClose, isFav, onToggleFav, user
   const priceUnit = p.price ? "€/h" : "€";
 
   return (
-    <div ref={ref} className={`fixed bottom-0 left-0 right-0 z-[1800] bg-white dark:bg-[#131318] rounded-t-3xl border-t border-black/8 dark:border-white/8 shadow-[0_-8px_30px_rgba(0,0,0,0.1)] safe-bottom overflow-y-auto ${parking ? "sheet-visible" : "sheet-enter"}`}
+    <div ref={ref} className={`fixed bottom-0 left-0 right-0 z-[1800] bg-white dark:bg-[#131318] rounded-t-3xl border-t border-black/8 dark:border-white/8 shadow-[0_-8px_30px_rgba(0,0,0,0.1)] safe-bottom overflow-y-auto detail-enter`}
       style={{ maxHeight: "85vh", paddingBottom: "100px" }}>
       {/* Handle + close */}
       <div className="relative" onTouchStart={onTS} onTouchMove={onTM} onTouchEnd={onTE}>
@@ -108,20 +107,75 @@ export default function DetailSheet({ parking, onClose, isFav, onToggleFav, user
           </p>
         )}
 
-        {/* Affluence chart */}
-        <div className="mb-5">
-          <div className="text-[11px] font-semibold text-gray-400 mb-2">Affluence typique</div>
-          <div className="flex gap-[2px] items-end h-8">
-            {hours.map((h, i) => (
-              <div key={i} className="flex-1 rounded-sm" style={{
-                height: `${Math.max(3, h * 32)}px`,
-                background: i === nowH ? "var(--accent)" : h > 0.7 ? "var(--full)" : h > 0.4 ? "var(--paid)" : "var(--free)",
-                opacity: i === nowH ? 1 : 0.4,
-              }} />
-            ))}
-          </div>
-          <div className="flex justify-between mt-1"><span className="text-[9px] text-gray-300">0h</span><span className="text-[9px] text-gray-300">6h</span><span className="text-[9px] text-gray-300">12h</span><span className="text-[9px] text-gray-300">18h</span><span className="text-[9px] text-gray-300">23h</span></div>
-        </div>
+        {/* === SMART PREDICTION === */}
+        {(() => {
+          const pred = predictAvailability(p.total, p.name, p.addr, p.realtime, p.realtime ? p.avail : undefined);
+          const summary = predictionSummary(pred, p.total);
+          const confColor = confidenceColor(pred.confidence);
+          const nowH = new Date().getHours();
+          const maxForecast = Math.max(...pred.hourlyForecast, 1);
+
+          return (
+            <div className="mb-5">
+              {/* Prediction header */}
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={confColor} strokeWidth="2"><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/><circle cx="12" cy="12" r="6"/></svg>
+                  <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Prédiction</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ background: confColor }} />
+                  <span className="text-[10px] font-medium" style={{ color: confColor }}>Confiance {pred.confidenceLabel.toLowerCase()}</span>
+                </div>
+              </div>
+
+              {/* Summary + trend */}
+              <div className="flex items-center justify-between mb-3 px-1">
+                <span className="text-[13px] font-semibold text-gray-700 dark:text-gray-200">{summary}</span>
+                <div className="flex items-center gap-1">
+                  {pred.trend === "down" && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ea580c" strokeWidth="2.5"><path d="M12 5v14M5 12l7 7 7-7"/></svg>}
+                  {pred.trend === "up" && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg>}
+                  {pred.trend === "stable" && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2.5"><path d="M5 12h14"/></svg>}
+                  <span className={`text-[11px] font-medium ${pred.trend === "down" ? "text-[var(--paid)]" : pred.trend === "up" ? "text-[var(--free)]" : "text-gray-400"}`}>{pred.trendLabel}</span>
+                </div>
+              </div>
+
+              {/* Hourly forecast chart */}
+              <div className="bg-gray-50 dark:bg-gray-800/30 rounded-2xl p-4">
+                <div className="flex gap-[2px] items-end h-12 mb-1">
+                  {pred.hourlyForecast.map((v, i) => {
+                    const h = Math.max(3, (v / maxForecast) * 48);
+                    const isCurrent = i === nowH;
+                    const pct = p.total > 0 ? v / p.total : 0;
+                    const color = isCurrent ? "var(--accent)" : pct > 0.3 ? "var(--free)" : pct > 0.1 ? "var(--paid)" : "var(--full)";
+                    return (
+                      <div key={i} className="flex-1 rounded-sm transition-all" style={{
+                        height: `${h}px`,
+                        background: color,
+                        opacity: isCurrent ? 1 : 0.35,
+                      }} />
+                    );
+                  })}
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[9px] text-gray-300 dark:text-gray-600">0h</span>
+                  <span className="text-[9px] text-gray-300 dark:text-gray-600">6h</span>
+                  <span className="text-[9px] text-gray-300 dark:text-gray-600">12h</span>
+                  <span className="text-[9px] text-gray-300 dark:text-gray-600">18h</span>
+                  <span className="text-[9px] text-gray-300 dark:text-gray-600">23h</span>
+                </div>
+              </div>
+
+              {/* Best time suggestion */}
+              {pred.bestTime && (
+                <div className="mt-3 flex items-center gap-2 px-3 py-2.5 bg-blue-50 dark:bg-blue-900/10 rounded-xl">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                  <span className="text-[12px] text-[var(--accent)] font-medium">Meilleur créneau : {pred.bestTime}</span>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Price estimator — compact */}
         {p.type !== "free" && (

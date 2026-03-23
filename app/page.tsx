@@ -5,12 +5,14 @@ import TabBar, { type TabId } from "./components/TabBar";
 import PeekSheet from "./components/PeekSheet";
 import DetailSheet from "./components/DetailSheet";
 import NavigationSheet from "./components/NavigationSheet";
+import Onboarding from "./components/Onboarding";
 import { loadParkingsForCity, refreshSaemes, reverseGeocode, searchAddress, searchCity, sortByProximity, distanceKm, isCitySupported, type Parking, type CityInfo } from "@/lib/api";
 import { getStreetStatus, fetchStreetSpots, type StreetSpot, type VoirieStatus } from "@/lib/voirie";
 import { calculateRoute, type Route } from "@/lib/navigation";
+import { tapLight, tapMedium, tapHeavy, tapSuccess, tapSelection } from "@/lib/haptics";
 
 const Map = dynamic(() => import("./components/Map"), { ssr: false });
-type Step = "splash" | "detecting" | "confirm" | "ready";
+type Step = "onboarding" | "splash" | "detecting" | "confirm" | "ready";
 type SortMode = "smart" | "distance" | "price" | "avail";
 
 interface Filters { maxDistance: number; maxPrice: number; parkingType: "all" | "covered" | "outdoor"; pmr: boolean; electrique: boolean; }
@@ -19,7 +21,7 @@ const defaultFilters: Filters = { maxDistance: 20, maxPrice: 0, parkingType: "al
 interface ParkedCar { parkingId: number; parkingName: string; lat: number; lng: number; time: string; }
 
 export default function Home() {
-  const [step, setStep] = useState<Step>("splash");
+  const [step, setStep] = useState<Step>("onboarding");
   const [city, setCity] = useState<CityInfo | null>(null);
   const [cityQuery, setCityQuery] = useState("");
   const [citySuggestions, setCitySuggestions] = useState<CityInfo[]>([]);
@@ -59,12 +61,28 @@ export default function Home() {
     setFavorites(JSON.parse(localStorage.getItem("parkspot_favs") || "[]"));
     setDark(localStorage.getItem("parkspot_theme") === "dark");
     try { const pc = JSON.parse(localStorage.getItem("parkspot_parked") || "null"); if (pc) setParkedCar(pc); } catch {}
-    const t = setTimeout(() => {
-      const saved = localStorage.getItem("parkspot_city");
-      if (saved) { try { const c = JSON.parse(saved) as CityInfo; setCity(c); setMapCenter([c.lat, c.lng]); setMapZoom(13); setStep("ready"); doLoadCity(c); return; } catch {} }
-      detectCity();
-    }, 1200);
-    return () => clearTimeout(t);
+
+    // Check if onboarding was already seen
+    const onboarded = localStorage.getItem("parkspot_onboarded");
+    if (onboarded) {
+      setStep("splash");
+      const t = setTimeout(() => {
+        const saved = localStorage.getItem("parkspot_city");
+        if (saved) {
+          try {
+            const c = JSON.parse(saved) as CityInfo;
+            setCity(c); setMapCenter([c.lat, c.lng]); setMapZoom(13);
+            setSplashExit(true);
+            setTimeout(() => setStep("ready"), 500);
+            doLoadCity(c); return;
+          } catch {}
+        }
+        setSplashExit(true);
+        setTimeout(() => { setStep("detecting"); detectCity(); }, 500);
+      }, 1000);
+      return () => clearTimeout(t);
+    }
+    // else: stay on "onboarding" step
   }, []);
 
   async function detectCity() {
@@ -94,6 +112,7 @@ export default function Home() {
   // === PARK HERE ===
   function parkHere() {
     if (!selected) return;
+    tapHeavy();
     const pc: ParkedCar = { parkingId: selected.id, parkingName: selected.name, lat: selected.lat, lng: selected.lng, time: new Date().toISOString() };
     setParkedCar(pc);
     localStorage.setItem("parkspot_parked", JSON.stringify(pc));
@@ -131,9 +150,9 @@ export default function Home() {
   const paidCount = useMemo(() => filtered.filter((p) => p.type === "paid").length, [filtered]);
   const activeFilterCount = useMemo(() => { let c = 0; if (advFilters.maxPrice > 0) c++; if (advFilters.pmr) c++; if (advFilters.electrique) c++; if (advFilters.parkingType !== "all") c++; if (advFilters.maxDistance < 20) c++; return c; }, [advFilters]);
 
-  function toggleFav(id: number) { setFavorites((prev) => { const n = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]; localStorage.setItem("parkspot_favs", JSON.stringify(n)); return n; }); }
+  function toggleFav(id: number) { tapSuccess(); setFavorites((prev) => { const n = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]; localStorage.setItem("parkspot_favs", JSON.stringify(n)); return n; }); }
   function locate() { if ("geolocation" in navigator) navigator.geolocation.getCurrentPosition((pos) => { setUserPos([pos.coords.latitude, pos.coords.longitude]); setMapCenter([pos.coords.latitude, pos.coords.longitude]); setMapZoom(15); setSearchAnchor(null); setAddressPin(null); }, () => {}, { enableHighAccuracy: true, timeout: 8000 }); }
-  const onSelect = useCallback((p: Parking) => setSelected(p), []);
+  const onSelect = useCallback((p: Parking) => { setSelected(p); tapMedium(); }, []);
   const fLabels: Record<string, string> = { all: "Tous", free: "Gratuit", paid: "Payant", available: "Dispo" };
   const sortLabels: Record<SortMode, string> = { smart: "Pertinence", distance: "Distance", price: "Prix", avail: "Dispo" };
   useEffect(() => { setListVisible(20); }, [activeTab, filter, advFilters, searchQuery, sortMode]);
@@ -195,7 +214,9 @@ export default function Home() {
     setNavigating(false);
     setNavRoute(null);
     setNavDest(null);
+    // Stop both native and web TTS
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    import("@capacitor-community/text-to-speech").then(m => m.TextToSpeech.stop()).catch(() => {});
   }
 
   // === GPS WATCH during navigation ===
@@ -210,8 +231,23 @@ export default function Home() {
     return () => navigator.geolocation.clearWatch(watchId);
   }, [navigating]);
 
+  const [splashExit, setSplashExit] = useState(false);
+
+  // === ONBOARDING ===
+  if (step === "onboarding") return (
+    <Onboarding onComplete={() => {
+      setStep("splash");
+      setTimeout(() => {
+        const saved = localStorage.getItem("parkspot_city");
+        if (saved) { try { const c = JSON.parse(saved) as CityInfo; setCity(c); setMapCenter([c.lat, c.lng]); setMapZoom(13); setSplashExit(true); setTimeout(() => setStep("ready"), 500); doLoadCity(c); return; } catch {} }
+        setSplashExit(true);
+        setTimeout(() => { setStep("detecting"); detectCity(); }, 500);
+      }, 1000);
+    }} />
+  );
+
   // === SPLASH ===
-  if (step === "splash") return (<div className="splash bg-white dark:bg-[#0e0e12] text-gray-900 dark:text-white"><div className="splash-logo">P</div><div className="splash-text">ParkSpot</div><div className="splash-sub">Parking intelligent en France</div><div className="splash-spinner"><div className="splash-dots"><span /><span /><span /></div></div></div>);
+  if (step === "splash") return (<div className={`splash bg-white dark:bg-[#0e0e12] text-gray-900 dark:text-white ${splashExit ? "splash-exit" : ""}`}><div className="splash-logo">P</div><div className="splash-text">ParkSpot</div><div className="splash-sub">Parking intelligent en France</div><div className="splash-spinner"><div className="splash-dots"><span /><span /><span /></div></div></div>);
 
   // === DETECTION ===
   if (step === "detecting" || step === "confirm") return (

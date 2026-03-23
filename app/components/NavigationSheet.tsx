@@ -56,14 +56,18 @@ export default function NavigationSheet({ route, userPos, destination, onClose, 
 
   useEffect(() => {
     setVoiceEnabled(voiceOn);
+    // Preload voices (Safari needs this trigger)
     if ("speechSynthesis" in window) {
       window.speechSynthesis.getVoices();
-      setTimeout(() => {
-        if (voiceOn && route.steps[0]) {
-          speak(`Navigation démarrée. ${route.steps[0].instruction}. Durée estimée ${formatDuration(route.duration)}.`, true);
-        }
-      }, 500);
+      window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
     }
+    // Delay first speak to let voices load
+    const t = setTimeout(() => {
+      if (voiceOn && route.steps[0]) {
+        speak(`Navigation démarrée. ${route.steps[0].instruction}. Durée estimée ${formatDuration(route.duration)}.`, true);
+      }
+    }, 800);
+    return () => clearTimeout(t);
   }, []);
 
   useEffect(() => {
