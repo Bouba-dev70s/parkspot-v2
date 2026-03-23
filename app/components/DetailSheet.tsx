@@ -1,10 +1,11 @@
 "use client";
-import { useRef, useCallback, useMemo, useState } from "react";
+import { useRef, useCallback, useMemo, useState, useEffect } from "react";
 import { HiOutlineBookmark, HiBookmark, HiX, HiOutlineShare, HiOutlineLocationMarker } from "react-icons/hi";
 import type { Parking } from "@/lib/api";
 import { estimatePrice, distanceKm } from "@/lib/api";
 import { getVoirieComparison } from "@/lib/voirie";
 import { predictAvailability, predictionSummary, confidenceColor } from "@/lib/prediction";
+import { submitReport, getCrowdStatus } from "@/lib/backend";
 
 interface Props { parking: Parking | null; onClose: () => void; isFav: boolean; onToggleFav: () => void; userPos: [number, number] | null; onParkHere?: () => void; onNavigate?: (mode: "driving" | "walking") => void; }
 
@@ -13,6 +14,8 @@ export default function DetailSheet({ parking, onClose, isFav, onToggleFav, user
   const sy = useRef(0); const cy = useRef(0); const dr = useRef(false);
   const [duration, setDuration] = useState(2);
   const [shared, setShared] = useState(false);
+  const [reported, setReported] = useState<string | null>(null);
+  const [crowdStatus, setCrowdStatus] = useState<{ status: string; count: number; lastReport: string } | null>(null);
   const onTS = useCallback((e: React.TouchEvent) => { sy.current = e.touches[0].clientY; dr.current = true; ref.current?.classList.add("sheet-dragging"); }, []);
   const onTM = useCallback((e: React.TouchEvent) => { if (!dr.current || !ref.current) return; cy.current = e.touches[0].clientY; const d = cy.current - sy.current; if (d > 0) ref.current.style.transform = `translateY(${d}px)`; }, []);
   const onTE = useCallback(() => { if (!dr.current) return; dr.current = false; ref.current?.classList.remove("sheet-dragging"); if (cy.current - sy.current > 80) { onClose(); if (ref.current) ref.current.style.transform = ""; } else if (ref.current) ref.current.style.transform = "translateY(0)"; sy.current = 0; cy.current = 0; }, [onClose]);
@@ -22,6 +25,20 @@ export default function DetailSheet({ parking, onClose, isFav, onToggleFav, user
   const vc = pct > 0.3 ? "var(--free)" : pct > 0 ? "var(--paid)" : "var(--full)";
   const dist = useMemo(() => { if (!p || !userPos) return null; const d = distanceKm(userPos[0], userPos[1], p.lat, p.lng); return d < 1 ? `${Math.round(d * 1000)}m` : `${d.toFixed(1)}km`; }, [p, userPos]);
   const walkMin = useMemo(() => { if (!p || !userPos) return null; const d = distanceKm(userPos[0], userPos[1], p.lat, p.lng); return `${Math.round(d * 12)} min à pied`; }, [p, userPos]);
+
+  // Fetch crowd reports for this parking
+  useEffect(() => {
+    if (!p) return;
+    setReported(null);
+    setCrowdStatus(null);
+    getCrowdStatus(p.name).then(s => { if (s) setCrowdStatus(s); });
+  }, [p?.id]);
+
+  async function reportStatus(status: "full" | "few" | "many") {
+    if (!p) return;
+    setReported(status);
+    await submitReport(p.name, p.lat, p.lng, status);
+  }
   const navigateTo = () => { if (!p) return; const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent); if (iOS) window.open(`maps://maps.apple.com/?daddr=${p.lat},${p.lng}&dirflg=d`); else window.open(`https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}&travelmode=driving`); };
 
   async function sharePark() {
@@ -192,6 +209,39 @@ export default function DetailSheet({ parking, onClose, isFav, onToggleFav, user
             </div>
           </div>
         )}
+
+        {/* === CROWD REPORTS — users signal availability === */}
+        <div className="mb-5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+              <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Communauté</span>
+            </div>
+            {crowdStatus && (
+              <span className="text-[10px] text-gray-400">{crowdStatus.count} signalement{crowdStatus.count > 1 ? "s" : ""}</span>
+            )}
+          </div>
+          {crowdStatus && (
+            <div className="bg-blue-50 dark:bg-blue-900/10 rounded-xl px-3 py-2.5 mb-3 flex items-center gap-2">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+              <span className="text-[12px] font-medium text-[var(--accent)]">{crowdStatus.status}</span>
+            </div>
+          )}
+          {reported ? (
+            <div className="text-center py-3 bg-green-50 dark:bg-green-900/10 rounded-xl">
+              <span className="text-[12px] font-medium text-[var(--free)]">Merci pour votre signalement</span>
+            </div>
+          ) : (
+            <div>
+              <div className="text-[11px] text-gray-400 mb-2">Vous y êtes ? Signalez la disponibilité :</div>
+              <div className="grid grid-cols-3 gap-2">
+                <button onClick={() => reportStatus("full")} className="py-2.5 rounded-xl bg-red-50 dark:bg-red-900/10 text-[11px] font-semibold text-red-500 active:scale-95">Complet</button>
+                <button onClick={() => reportStatus("few")} className="py-2.5 rounded-xl bg-orange-50 dark:bg-orange-900/10 text-[11px] font-semibold text-orange-500 active:scale-95">Peu de places</button>
+                <button onClick={() => reportStatus("many")} className="py-2.5 rounded-xl bg-green-50 dark:bg-green-900/10 text-[11px] font-semibold text-green-500 active:scale-95">Dispo</button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Voirie comparison — only in Paris */}
         {(() => {

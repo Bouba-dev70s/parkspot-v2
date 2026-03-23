@@ -10,6 +10,7 @@ import { loadParkingsForCity, refreshSaemes, reverseGeocode, searchAddress, sear
 import { getStreetStatus, fetchStreetSpots, type StreetSpot, type VoirieStatus } from "@/lib/voirie";
 import { calculateRoute, type Route } from "@/lib/navigation";
 import { tapLight, tapMedium, tapHeavy, tapSuccess, tapSelection } from "@/lib/haptics";
+import { initBackend, analytics, recordAvailability, submitReport } from "@/lib/backend";
 
 const Map = dynamic(() => import("./components/Map"), { ssr: false });
 type Step = "onboarding" | "splash" | "detecting" | "confirm" | "ready";
@@ -58,6 +59,7 @@ export default function Home() {
 
   // === INIT ===
   useEffect(() => {
+    initBackend();
     setFavorites(JSON.parse(localStorage.getItem("parkspot_favs") || "[]"));
     setDark(localStorage.getItem("parkspot_theme") === "dark");
     try { const pc = JSON.parse(localStorage.getItem("parkspot_parked") || "null"); if (pc) setParkedCar(pc); } catch {}
@@ -99,8 +101,20 @@ export default function Home() {
 
   useEffect(() => { document.documentElement.classList.toggle("dark", dark); localStorage.setItem("parkspot_theme", dark ? "dark" : "light"); }, [dark]);
 
-  async function doLoadCity(c: CityInfo) { setLoading(true); localStorage.setItem("parkspot_city", JSON.stringify(c)); const { data, source, timestamp } = await loadParkingsForCity(c); setParkings(data); setDataSource(source); setDataTimestamp(timestamp); setLoading(false); }
-  function confirmCity(c: CityInfo) { setCity(c); setMapCenter([c.lat, c.lng]); setMapZoom(13); setStep("ready"); doLoadCity(c); }
+  async function doLoadCity(c: CityInfo) {
+    setLoading(true);
+    localStorage.setItem("parkspot_city", JSON.stringify(c));
+    const { data, source, timestamp } = await loadParkingsForCity(c);
+    setParkings(data);
+    setDataSource(source);
+    setDataTimestamp(timestamp);
+    setLoading(false);
+    // Record realtime data to history (for better predictions over time)
+    for (const p of data.filter(p => p.realtime).slice(0, 20)) {
+      recordAvailability(p.name, p.lat, p.lng, p.avail, p.total, true);
+    }
+  }
+  function confirmCity(c: CityInfo) { setCity(c); setMapCenter([c.lat, c.lng]); setMapZoom(13); setStep("ready"); doLoadCity(c); analytics.citySelected(c.name); }
   function changeCity() { setStep("confirm"); setCity(null); setCityQuery(""); setCitySuggestions([]); localStorage.removeItem("parkspot_city"); }
 
   useEffect(() => { if (cityQuery.length < 2) { setCitySuggestions([]); return; } const t = setTimeout(async () => setCitySuggestions(await searchCity(cityQuery)), 300); return () => clearTimeout(t); }, [cityQuery]);
@@ -113,6 +127,7 @@ export default function Home() {
   function parkHere() {
     if (!selected) return;
     tapHeavy();
+    analytics.parkedHere(selected.name);
     const pc: ParkedCar = { parkingId: selected.id, parkingName: selected.name, lat: selected.lat, lng: selected.lng, time: new Date().toISOString() };
     setParkedCar(pc);
     localStorage.setItem("parkspot_parked", JSON.stringify(pc));
@@ -152,7 +167,7 @@ export default function Home() {
 
   function toggleFav(id: number) { tapSuccess(); setFavorites((prev) => { const n = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]; localStorage.setItem("parkspot_favs", JSON.stringify(n)); return n; }); }
   function locate() { if ("geolocation" in navigator) navigator.geolocation.getCurrentPosition((pos) => { setUserPos([pos.coords.latitude, pos.coords.longitude]); setMapCenter([pos.coords.latitude, pos.coords.longitude]); setMapZoom(15); setSearchAnchor(null); setAddressPin(null); }, () => {}, { enableHighAccuracy: true, timeout: 8000 }); }
-  const onSelect = useCallback((p: Parking) => { setSelected(p); tapMedium(); }, []);
+  const onSelect = useCallback((p: Parking) => { setSelected(p); tapMedium(); analytics.parkingViewed(p.id, p.name); }, []);
   const fLabels: Record<string, string> = { all: "Tous", free: "Gratuit", paid: "Payant", available: "Dispo" };
   const sortLabels: Record<SortMode, string> = { smart: "Pertinence", distance: "Distance", price: "Prix", avail: "Dispo" };
   useEffect(() => { setListVisible(20); }, [activeTab, filter, advFilters, searchQuery, sortMode]);
@@ -182,6 +197,7 @@ export default function Home() {
 
   // === NAVIGATION ===
   async function startNavigation(parking: Parking, mode: "driving" | "walking" = "driving") {
+    analytics.navigationStarted(mode);
     if (!userPos) {
       // Get current position first
       if ("geolocation" in navigator) {
